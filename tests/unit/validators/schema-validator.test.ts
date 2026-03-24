@@ -35,4 +35,28 @@ describe('validateSchema', () => {
     const result = validateSchema(null);
     expect(result.valid).toBe(false);
   });
+
+  it('rejects spec with invalid slug (uppercase)', () => {
+    const result = validateSchema({ metadata: { slug: 'My-Theme' } });
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects spec with invalid slug (spaces)', () => {
+    const result = validateSchema({ metadata: { slug: 'my theme' } });
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects spec with fewer than 5 colors', () => {
+    const spec = JSON.parse(JSON.stringify(photographySpec));
+    spec.designTokens.colors = spec.designTokens.colors.slice(0, 2);
+    const result = validateSchema(spec);
+    expect(result.valid).toBe(false);
+  });
+
+  it('rejects spec with invalid hex color', () => {
+    const spec = JSON.parse(JSON.stringify(photographySpec));
+    spec.designTokens.colors[0].hex = 'not-a-color';
+    const result = validateSchema(spec);
+    expect(result.valid).toBe(false);
+  });
 });

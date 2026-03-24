@@ -68,4 +68,32 @@ describe('UserInputSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('rejects invalid vibe', () => {
+    const result = UserInputSchema.safeParse({
+      description: 'A valid description for testing.',
+      vibe: 'garbage-vibe-that-does-not-exist',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts all valid vibes', () => {
+    const vibes = ['minimalist', 'bold', 'elegant', 'playful', 'corporate', 'organic', 'dark', 'warm'];
+    for (const vibe of vibes) {
+      const result = UserInputSchema.safeParse({
+        description: 'A valid description for testing.',
+        vibe,
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('rejects more than 3 inspiration images', () => {
+    const fakeImg = { data: 'base64data', mimeType: 'image/jpeg' };
+    const result = UserInputSchema.safeParse({
+      description: 'A valid description for testing.',
+      inspirationImages: [fakeImg, fakeImg, fakeImg, fakeImg],
+    });
+    expect(result.success).toBe(false);
+  });
 });
