@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
+export const SLUG_PATTERN = /^[a-z0-9-]+$/;
+
 // ── Color with semantic role ──
 export const ColorTokenSchema = z.object({
-  slug: z.string().regex(/^[a-z0-9-]+$/),
+  slug: z.string().regex(SLUG_PATTERN),
   name: z.string(),
   hex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   role: z.enum(['primary', 'secondary', 'accent', 'base', 'contrast', 'neutral', 'surface']),
@@ -16,7 +18,7 @@ export const FontFaceSchema = z.object({
 });
 
 export const FontFamilySchema = z.object({
-  slug: z.string().regex(/^[a-z0-9-]+$/),
+  slug: z.string().regex(SLUG_PATTERN),
   name: z.string(),
   fontFamily: z.string(),
   category: z.enum(['heading', 'body']),
@@ -119,7 +121,7 @@ export const FooterConfigSchema = z.object({
 
 // ── Style variation ──
 export const StyleVariationSchema = z.object({
-  slug: z.string().regex(/^[a-z0-9-]+$/),
+  slug: z.string().regex(SLUG_PATTERN),
   title: z.string(),
   colors: z.array(ColorTokenSchema).optional(),
   fontFamilies: z.array(FontFamilySchema).optional(),
@@ -148,7 +150,7 @@ export const ShadowSchema = z.object({
 export const ThemeSpecSchema = z.object({
   metadata: z.object({
     name: z.string().min(1).max(100),
-    slug: z.string().regex(/^[a-z0-9-]+$/),
+    slug: z.string().regex(SLUG_PATTERN),
     description: z.string().max(500),
     author: z.string().default('BlockForge'),
     version: z.string().default('1.0.0'),
