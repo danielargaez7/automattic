@@ -962,7 +962,13 @@ export default function Home() {
               {/* ── Variation picker ── */}
               {variations.length > 0 && selectedVariation === null && (
                 <div className="space-y-3">
-                  <p className="text-center text-white/60 text-sm">We generated 3 variations — pick the one that speaks to you</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-white/60 text-sm">We generated 3 variations — pick the one that speaks to you</p>
+                    <button onClick={handleGenerate}
+                      className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white border border-white/20 hover:border-white/40 rounded-full px-3 py-1.5 transition-all cursor-pointer backdrop-blur">
+                      <RotateCcw className="w-3 h-3" /> Redo
+                    </button>
+                  </div>
                   <div className="grid grid-cols-3 gap-3">
                     {variations.map((v, i) => (
                       <button key={i} onClick={() => selectVariation(i)}
