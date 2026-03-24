@@ -101,13 +101,22 @@ const KEYWORD_CATEGORIES: Array<{ category: string; keywords: string[] }> = [
       'community', 'friendly', 'local',
     ],
   },
+  {
+    category: 'textures',
+    keywords: [
+      'texture', 'marble', 'stone', 'concrete', 'wood', 'fabric', 'linen',
+      'material', 'surface', 'raw', 'natural material', 'luxury', 'spa',
+      'wellness', 'boutique', 'artisan', 'handcrafted', 'premium', 'high-end',
+      'quartz', 'slate', 'granite', 'bark', 'earthy',
+    ],
+  },
 ];
 
 // Vibe → best-fit category fallback (when no keyword match found)
 const VIBE_CATEGORY_MAP: Record<string, string> = {
   minimalist: 'minimal',
   bold:       'vibrant',
-  elegant:    'minimal',
+  elegant:    'textures',
   playful:    'vibrant',
   corporate:  'business',
   organic:    'nature',
