@@ -23,18 +23,18 @@ export function generateHeroCentered(spec: ThemeSpec, imageUris: string[] = []):
     <div style="height:60px" aria-hidden="true" class="wp-block-spacer"></div>
     <!-- /wp:spacer -->
 
-    <!-- wp:heading {"textAlign":"center","level":1,"fontSize":"xx-large"} -->
-    <h1 class="wp-block-heading has-text-align-center has-xx-large-font-size"><?php echo esc_html_x( 'Your Story Starts Here', 'Hero heading', '${slug}' ); ?></h1>
+    <!-- wp:heading {"textAlign":"center","level":1,"fontSize":"xx-large","style":{"color":{"text":"#ffffff"}}} -->
+    <h1 class="wp-block-heading has-text-align-center has-xx-large-font-size" style="color:#ffffff"><?php echo esc_html_x( 'Your Story Starts Here', 'Hero heading', '${slug}' ); ?></h1>
     <!-- /wp:heading -->
 
-    <!-- wp:paragraph {"align":"center","fontSize":"large"} -->
-    <p class="has-text-align-center has-large-font-size"><?php echo esc_html_x( 'A brief description of what makes this site special.', 'Hero description', '${slug}' ); ?></p>
+    <!-- wp:paragraph {"align":"center","fontSize":"large","style":{"color":{"text":"rgba(255,255,255,0.9)"}}} -->
+    <p class="has-text-align-center has-large-font-size" style="color:rgba(255,255,255,0.9)"><?php echo esc_html_x( 'A brief description of what makes this site special.', 'Hero description', '${slug}' ); ?></p>
     <!-- /wp:paragraph -->
 
     <!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
     <div class="wp-block-buttons">
-      <!-- wp:button {"backgroundColor":"accent","textColor":"contrast"} -->
-      <div class="wp-block-button"><a class="wp-block-button__link has-accent-background-color has-contrast-color has-text-color has-background wp-element-button"><?php echo esc_html_x( 'Get Started', 'Hero button', '${slug}' ); ?></a></div>
+      <!-- wp:button {"style":{"color":{"background":"#ffffff","text":"var(--wp--preset--color--primary)"}}} -->
+      <div class="wp-block-button"><a class="wp-block-button__link has-background wp-element-button" style="background-color:#ffffff;color:var(--wp--preset--color--primary)"><?php echo esc_html_x( 'Get Started', 'Hero button', '${slug}' ); ?></a></div>
       <!-- /wp:button -->
     </div>
     <!-- /wp:buttons -->
@@ -120,18 +120,18 @@ export function generateHeroFullwidth(spec: ThemeSpec, imageUris: string[] = [])
   ${bgUrl ? `<img class="wp-block-cover__image-background" alt="" src="${bgUrl}" style="object-fit:cover"/>` : ''}
   <div class="wp-block-cover__inner-container">
 
-    <!-- wp:heading {"textAlign":"center","level":1,"fontSize":"xx-large","textColor":"contrast"} -->
-    <h1 class="wp-block-heading has-text-align-center has-contrast-color has-text-color has-xx-large-font-size"><?php echo esc_html_x( 'Visual Stories That Inspire', 'Hero heading', '${slug}' ); ?></h1>
+    <!-- wp:heading {"textAlign":"center","level":1,"fontSize":"xx-large","style":{"color":{"text":"#ffffff"}}} -->
+    <h1 class="wp-block-heading has-text-align-center has-xx-large-font-size" style="color:#ffffff"><?php echo esc_html_x( 'Visual Stories That Inspire', 'Hero heading', '${slug}' ); ?></h1>
     <!-- /wp:heading -->
 
-    <!-- wp:paragraph {"align":"center","fontSize":"large","textColor":"contrast"} -->
-    <p class="has-text-align-center has-contrast-color has-text-color has-large-font-size"><?php echo esc_html_x( 'Discover a world of creativity captured through the lens.', 'Hero description', '${slug}' ); ?></p>
+    <!-- wp:paragraph {"align":"center","fontSize":"large","style":{"color":{"text":"rgba(255,255,255,0.9)"}}} -->
+    <p class="has-text-align-center has-large-font-size" style="color:rgba(255,255,255,0.9)"><?php echo esc_html_x( 'Discover a world of creativity captured through the lens.', 'Hero description', '${slug}' ); ?></p>
     <!-- /wp:paragraph -->
 
     <!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
     <div class="wp-block-buttons">
-      <!-- wp:button {"backgroundColor":"accent","textColor":"contrast"} -->
-      <div class="wp-block-button"><a class="wp-block-button__link has-accent-background-color has-contrast-color has-text-color has-background wp-element-button"><?php echo esc_html_x( 'Explore Gallery', 'Hero button', '${slug}' ); ?></a></div>
+      <!-- wp:button {"style":{"color":{"background":"#ffffff","text":"var(--wp--preset--color--primary)"}}} -->
+      <div class="wp-block-button"><a class="wp-block-button__link has-background wp-element-button" style="background-color:#ffffff;color:var(--wp--preset--color--primary)"><?php echo esc_html_x( 'Explore Gallery', 'Hero button', '${slug}' ); ?></a></div>
       <!-- /wp:button -->
     </div>
     <!-- /wp:buttons -->
