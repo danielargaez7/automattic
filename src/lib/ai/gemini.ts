@@ -28,7 +28,7 @@ export class GeminiProvider implements ThemeGenerationProvider {
       throw new Error('GEMINI_API_KEY is required');
     }
     this.client = new GoogleGenerativeAI(key);
-    this.model = model || process.env.GEMINI_MODEL || 'gemini-2.0-flash-001';
+    this.model = model || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   }
 
   async generateThemeSpec(input: UserInput): Promise<GenerationResult> {
