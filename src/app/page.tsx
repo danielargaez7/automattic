@@ -514,15 +514,25 @@ export default function Home() {
     if (!zipData || !playgroundRef.current) return;
     try {
       const { startPlaygroundWeb } = await import('@wp-playground/client');
-      // Note: only installTheme works reliably in @wp-playground/client v3.1.13
-      // client.run / writeFile / request all hit a Comlink serialization bug
-      const client = await startPlaygroundWeb({
+      const bytes = Uint8Array.from(atob(zipData), (c) => c.charCodeAt(0));
+      // Pass theme via Blueprint so it runs inside the iframe — avoids Comlink bug entirely
+      await startPlaygroundWeb({
         iframe: playgroundRef.current,
         remoteUrl: 'https://playground.wordpress.net/remote.html',
+        blueprint: {
+          landingPage: '/',
+          steps: [
+            {
+              step: 'installTheme',
+              themeData: {
+                resource: 'literal',
+                name: `${metadata?.slug || 'theme'}.zip`,
+                contents: bytes,
+              },
+            },
+          ],
+        },
       });
-      const bytes = Uint8Array.from(atob(zipData), (c) => c.charCodeAt(0));
-      const file = new File([bytes], `${metadata?.slug || 'theme'}.zip`, { type: 'application/zip' });
-      await client.installTheme({ zipFile: file, activate: true });
     } catch (e) {
       console.warn('Playground theme load failed:', e);
     }
