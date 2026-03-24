@@ -1,0 +1,131 @@
+{
+  "metadata": {
+    "name": "Obsidian Portfolio",
+    "slug": "obsidian-portfolio",
+    "description": "A dark, minimal photography portfolio with full-width imagery and refined typography.",
+    "author": "BlockForge",
+    "version": "1.0.0",
+    "tags": ["photography", "portfolio", "dark", "minimal", "full-width"]
+  },
+  "designTokens": {
+    "colors": [
+      { "slug": "primary", "name": "Primary", "hex": "#E2E8F0", "role": "primary" },
+      { "slug": "secondary", "name": "Secondary", "hex": "#94A3B8", "role": "secondary" },
+      { "slug": "accent", "name": "Accent", "hex": "#F59E0B", "role": "accent" },
+      { "slug": "base", "name": "Base", "hex": "#0F172A", "role": "base" },
+      { "slug": "contrast", "name": "Contrast", "hex": "#F8FAFC", "role": "contrast" },
+      { "slug": "surface", "name": "Surface", "hex": "#1E293B", "role": "surface" }
+    ],
+    "typography": {
+      "fontFamilies": [
+        {
+          "slug": "heading",
+          "name": "Heading",
+          "fontFamily": "'Playfair Display', serif",
+          "category": "heading",
+          "googleFont": true,
+          "fontFace": [
+            { "fontWeight": "400" },
+            { "fontWeight": "700" }
+          ]
+        },
+        {
+          "slug": "body",
+          "name": "Body",
+          "fontFamily": "'Inter', sans-serif",
+          "category": "body",
+          "googleFont": true,
+          "fontFace": [
+            { "fontWeight": "400" },
+            { "fontWeight": "500" },
+            { "fontWeight": "700" }
+          ]
+        }
+      ],
+      "fontSizes": [
+        { "slug": "small", "name": "Small", "size": "0.875rem" },
+        { "slug": "medium", "name": "Medium", "size": "1rem" },
+        { "slug": "large", "name": "Large", "size": "1.25rem", "fluid": { "min": "1.1rem", "max": "1.25rem" } },
+        { "slug": "x-large", "name": "Extra Large", "size": "1.75rem", "fluid": { "min": "1.5rem", "max": "1.75rem" } },
+        { "slug": "xx-large", "name": "2X Large", "size": "2.5rem", "fluid": { "min": "2rem", "max": "2.5rem" } }
+      ]
+    },
+    "spacing": [
+      { "slug": "20", "name": "2", "size": "0.5rem" },
+      { "slug": "30", "name": "3", "size": "0.75rem" },
+      { "slug": "40", "name": "4", "size": "1rem" },
+      { "slug": "50", "name": "5", "size": "1.5rem" },
+      { "slug": "60", "name": "6", "size": "2rem" },
+      { "slug": "70", "name": "7", "size": "3rem" },
+      { "slug": "80", "name": "8", "size": "5rem" }
+    ]
+  },
+  "layout": {
+    "contentSize": "720px",
+    "wideSize": "1200px"
+  },
+  "header": {
+    "style": "minimal",
+    "sticky": true,
+    "hasSearch": false,
+    "hasSocialLinks": true
+  },
+  "footer": {
+    "columns": 3,
+    "hasNewsletter": false,
+    "hasSocialLinks": true,
+    "hasCopyright": true
+  },
+  "templates": [
+    {
+      "slug": "index",
+      "title": "Default",
+      "sections": [
+        { "type": "blog-latest-posts" }
+      ]
+    },
+    {
+      "slug": "home",
+      "title": "Homepage",
+      "sections": [
+        { "type": "hero-fullwidth-image" },
+        { "type": "gallery-masonry" },
+        { "type": "text-with-image" },
+        { "type": "cta-centered" }
+      ]
+    },
+    {
+      "slug": "single",
+      "title": "Single Post",
+      "sections": []
+    },
+    {
+      "slug": "page",
+      "title": "Page",
+      "sections": []
+    },
+    {
+      "slug": "archive",
+      "title": "Archive",
+      "sections": []
+    },
+    {
+      "slug": "404",
+      "title": "Not Found",
+      "sections": []
+    }
+  ],
+  "styleVariations": [
+    {
+      "slug": "warm-light",
+      "title": "Warm Light",
+      "colors": [
+        { "slug": "primary", "name": "Primary", "hex": "#1E293B", "role": "primary" },
+        { "slug": "base", "name": "Base", "hex": "#FFFBEB", "role": "base" },
+        { "slug": "accent", "name": "Accent", "hex": "#D97706", "role": "accent" },
+        { "slug": "contrast", "name": "Contrast", "hex": "#0F172A", "role": "contrast" },
+        { "slug": "surface", "name": "Surface", "hex": "#FEF3C7", "role": "surface" }
+      ]
+    }
+  ]
+}

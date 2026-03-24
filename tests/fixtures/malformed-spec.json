@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "name": "",
+    "slug": "INVALID SLUG WITH SPACES",
+    "description": "Test fixture for validation error handling",
+    "tags": ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven"]
+  },
+  "designTokens": {
+    "colors": [
+      { "slug": "primary", "name": "Primary", "hex": "#FFFFFF", "role": "primary" },
+      { "slug": "contrast", "name": "Contrast", "hex": "#F8FAFC", "role": "contrast" }
+    ],
+    "typography": {
+      "fontFamilies": [
+        {
+          "slug": "heading",
+          "name": "Heading",
+          "fontFamily": "'Inter', sans-serif",
+          "category": "heading"
+        }
+      ],
+      "fontSizes": [
+        { "slug": "small", "name": "Small", "size": "0.875rem" }
+      ]
+    },
+    "spacing": [
+      { "slug": "40", "name": "4", "size": "1rem" }
+    ]
+  },
+  "layout": {
+    "contentSize": "720px",
+    "wideSize": "1200px"
+  },
+  "header": {
+    "style": "default"
+  },
+  "footer": {},
+  "templates": []
+}

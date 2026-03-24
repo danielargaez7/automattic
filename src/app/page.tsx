@@ -1,65 +1,786 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  Sparkles,
+  Download,
+  RotateCcw,
+  Loader2,
+  Check,
+  AlertCircle,
+  ArrowRight,
+  ArrowLeft,
+  Send,
+  Cloud,
+  Upload,
+  X,
+  Link,
+  Shield,
+  Eye,
+} from 'lucide-react';
+import { SITE_TYPES, VIBES } from '@/lib/schemas/user-input';
+
+// ─── Types ───
+type WizardStep = 1 | 2 | 3 | 4 | 5;
+
+interface AccessibilityCheck {
+  name: string;
+  status: 'pass' | 'warn' | 'fail';
+  details: string;
+}
+
+interface AccessibilityScoreData {
+  overall: number;
+  grade: string;
+  checks: AccessibilityCheck[];
+}
+
+interface GenerationMetadata {
+  name: string;
+  slug: string;
+  description: string;
+  files: string[];
+  model: string;
+  tokensUsed: number;
+  repairAttempts: number;
+}
+
+interface UploadedImage {
+  data: string;
+  mimeType: string;
+  preview: string;
+  name: string;
+}
+
+interface ExtractedDesign {
+  url: string;
+  colors: string[];
+  fontFamilies: string[];
+  mood: string;
+}
+
+// ─── Constants ───
+const STEP_LABELS = ['Describe', 'Vibe', 'Site Type', 'Building', 'Result'];
+
+const VIBE_DATA: Record<string, { icon: string; gradient: string; desc: string }> = {
+  minimalist: { icon: '◻', gradient: 'from-zinc-400 to-zinc-600', desc: 'Clean & simple' },
+  bold: { icon: '◼', gradient: 'from-red-400 to-orange-500', desc: 'Strong & striking' },
+  elegant: { icon: '◇', gradient: 'from-amber-300 to-yellow-500', desc: 'Refined & luxurious' },
+  playful: { icon: '○', gradient: 'from-pink-400 to-purple-500', desc: 'Fun & energetic' },
+  corporate: { icon: '▣', gradient: 'from-blue-400 to-cyan-500', desc: 'Professional & trusted' },
+  organic: { icon: '◎', gradient: 'from-green-400 to-emerald-500', desc: 'Natural & flowing' },
+  dark: { icon: '●', gradient: 'from-zinc-600 to-zinc-800', desc: 'Moody & immersive' },
+  warm: { icon: '◉', gradient: 'from-orange-400 to-red-400', desc: 'Inviting & cozy' },
+};
+
+const SITE_TYPE_DATA: Record<string, { icon: string; desc: string }> = {
+  blog: { icon: '📝', desc: 'Articles & stories' },
+  portfolio: { icon: '🎨', desc: 'Showcase your work' },
+  business: { icon: '💼', desc: 'Company & services' },
+  ecommerce: { icon: '🛍️', desc: 'Online store' },
+  personal: { icon: '👤', desc: 'Your personal space' },
+  agency: { icon: '🏢', desc: 'Team & clients' },
+};
+
+const GENERATION_STAGES = [
+  { label: 'Reading your vision...', icon: '👁️' },
+  { label: 'Analyzing inspiration...', icon: '🎨' },
+  { label: 'Designing color palette & typography...', icon: '✍️' },
+  { label: 'Crafting layout & patterns...', icon: '🏗️' },
+  { label: 'Validating theme structure...', icon: '🔍' },
+  { label: 'Scoring accessibility...', icon: '♿' },
+  { label: 'Packaging your theme...', icon: '📦' },
+];
 
 export default function Home() {
+  const [step, setStep] = useState<WizardStep>(1);
+  const [description, setDescription] = useState('');
+  const [vibe, setVibe] = useState('');
+  const [siteType, setSiteType] = useState('');
+  const [colorPreferences, setColorPreferences] = useState('');
+  const [fontPreferences, setFontPreferences] = useState('');
+  const [error, setError] = useState('');
+  const [zipData, setZipData] = useState('');
+  const [metadata, setMetadata] = useState<GenerationMetadata | null>(null);
+  const [accessibility, setAccessibility] = useState<AccessibilityScoreData | null>(null);
+  const [generationStage, setGenerationStage] = useState(0);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Image upload state
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // URL extraction state
+  const [referenceUrl, setReferenceUrl] = useState('');
+  const [extractedDesign, setExtractedDesign] = useState<ExtractedDesign | null>(null);
+  const [extracting, setExtracting] = useState(false);
+
+  const canProceedFromStep1 = description.trim().length >= 10;
+
+  // ─── Animated placeholder rotation ───
+  const PLACEHOLDER_EXAMPLES = [
+    'A minimalist portfolio for a landscape photographer',
+    'A bold SaaS landing page with pricing and testimonials',
+    'A warm cooking blog with earthy tones and serif fonts',
+    'A dark mode agency site with neon accents and large typography',
+  ];
+
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [placeholderText, setPlaceholderText] = useState('');
+  const [placeholderPhase, setPlaceholderPhase] = useState<'typing' | 'waiting' | 'dots' | 'deleting'>('typing');
+  const placeholderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Don't animate if user has typed something
+    if (description.length > 0 || step !== 1) return;
+
+    const example = PLACEHOLDER_EXAMPLES[placeholderIndex];
+
+    if (placeholderPhase === 'typing') {
+      if (placeholderText.length < example.length) {
+        placeholderTimer.current = setTimeout(() => {
+          setPlaceholderText(example.slice(0, placeholderText.length + 1));
+        }, 35);
+      } else {
+        // Done typing, go to waiting
+        setPlaceholderPhase('waiting');
+      }
+    } else if (placeholderPhase === 'waiting') {
+      placeholderTimer.current = setTimeout(() => {
+        setPlaceholderPhase('dots');
+      }, 5000);
+    } else if (placeholderPhase === 'dots') {
+      // Show dots animation for 2 seconds then start deleting
+      placeholderTimer.current = setTimeout(() => {
+        setPlaceholderPhase('deleting');
+      }, 2000);
+    } else if (placeholderPhase === 'deleting') {
+      if (placeholderText.length > 0) {
+        placeholderTimer.current = setTimeout(() => {
+          setPlaceholderText(placeholderText.slice(0, -2)); // delete 2 chars at a time for speed
+        }, 15);
+      } else {
+        // Done deleting, move to next example
+        setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDER_EXAMPLES.length);
+        setPlaceholderPhase('typing');
+      }
+    }
+
+    return () => {
+      if (placeholderTimer.current) clearTimeout(placeholderTimer.current);
+    };
+  }, [placeholderText, placeholderPhase, placeholderIndex, description.length, step]);
+
+  const displayPlaceholder =
+    description.length > 0
+      ? ''
+      : placeholderPhase === 'dots'
+        ? placeholderText + ' ...'
+        : placeholderText + (placeholderPhase === 'typing' ? '|' : '');
+
+  const goNext = useCallback(() => {
+    setStep((s) => Math.min(s + 1, 5) as WizardStep);
+  }, []);
+
+  const goBack = useCallback(() => {
+    setStep((s) => Math.max(s - 1, 1) as WizardStep);
+  }, []);
+
+  // ─── Image Upload ───
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+
+    for (const file of Array.from(files)) {
+      if (uploadedImages.length >= 3) break;
+      if (!file.type.startsWith('image/')) continue;
+      if (file.size > 5 * 1024 * 1024) continue; // 5MB max
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(',')[1];
+        setUploadedImages((prev) => [
+          ...prev.slice(0, 2),
+          {
+            data: base64,
+            mimeType: file.type,
+            preview: result,
+            name: file.name,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function removeImage(index: number) {
+    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // ─── URL Extraction ───
+  async function handleExtractUrl() {
+    if (!referenceUrl.trim()) return;
+    setExtracting(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/extract-design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: referenceUrl.trim() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to extract design');
+      }
+
+      const data = await res.json();
+      setExtractedDesign(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to extract design from URL');
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  // ─── Generate ───
+  async function handleGenerate() {
+    setError('');
+    setStep(4);
+    setGenerationStage(0);
+
+    const stageInterval = setInterval(() => {
+      setGenerationStage((prev) => Math.min(prev + 1, GENERATION_STAGES.length - 1));
+    }, 2500);
+
+    try {
+      const body: Record<string, unknown> = { description: description.trim() };
+      if (siteType) body.siteType = siteType;
+      if (vibe) body.vibe = vibe;
+      if (colorPreferences) body.colorPreferences = colorPreferences;
+      if (fontPreferences) body.fontPreferences = fontPreferences;
+      if (uploadedImages.length > 0) {
+        body.inspirationImages = uploadedImages.map((img) => ({
+          data: img.data,
+          mimeType: img.mimeType,
+        }));
+      }
+      if (extractedDesign) {
+        body.extractedDesign = extractedDesign;
+      }
+
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      clearInterval(stageInterval);
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `Generation failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      setZipData(data.zip);
+      setMetadata(data.metadata);
+      setAccessibility(data.accessibility);
+      setStep(5);
+    } catch (err: unknown) {
+      clearInterval(stageInterval);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setStep(3);
+    }
+  }
+
+  function handleDownload() {
+    if (!zipData || !metadata) return;
+    const blob = new Blob([Uint8Array.from(atob(zipData), (c) => c.charCodeAt(0))], {
+      type: 'application/zip',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${metadata.slug}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleReset() {
+    setStep(1);
+    setDescription('');
+    setSiteType('');
+    setVibe('');
+    setColorPreferences('');
+    setFontPreferences('');
+    setError('');
+    setZipData('');
+    setMetadata(null);
+    setAccessibility(null);
+    setUploadedImages([]);
+    setReferenceUrl('');
+    setExtractedDesign(null);
+    setShowPreview(false);
+  }
+
+  // Grade color helper
+  function gradeColor(grade: string) {
+    if (grade === 'A') return 'text-emerald-400';
+    if (grade === 'B') return 'text-emerald-300';
+    if (grade === 'C') return 'text-amber-400';
+    return 'text-red-400';
+  }
+
+  const isLanding = step === 1;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen flex flex-col relative overflow-hidden hero-bg-blend text-gray-900">
+
+
+      {/* Header */}
+      {!isLanding && (
+        <header className="relative z-10 px-6 py-5">
+          <div className="max-w-5xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Cloud className="w-7 h-7 text-[#F3A8B1]" />
+              <span className="text-xl font-bold tracking-tight text-white text-glow">
+                DreamBuilder
+              </span>
+            </div>
+            {step > 1 && step < 4 && (
+              <button onClick={goBack} className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors cursor-pointer">
+                <ArrowLeft className="w-4 h-4" /> Back
+              </button>
+            )}
+          </div>
+        </header>
+      )}
+
+      {/* Step Tracker — only visible on steps 2 and 3, animates in */}
+      {step >= 2 && step <= 3 && (
+        <div className="relative z-10 px-6 pb-2 animate-fade-in">
+          <div className="max-w-md mx-auto flex items-center justify-between">
+            {[1, 2, 3].map((s, i) => (
+              <div key={s} className="flex items-center">
+                <div className="flex flex-col items-center">
+                  <div className={`step-dot w-3 h-3 rounded-full transition-all duration-500 ${step >= s ? 'bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] scale-110' : 'bg-white/30 scale-100'}`} />
+                  <span className={`text-xs mt-1.5 transition-colors duration-500 ${step >= s ? 'text-white' : 'text-white/40'}`}>{STEP_LABELS[i]}</span>
+                </div>
+                {i < 2 && <div className={`step-line w-24 sm:w-32 h-0.5 mx-3 mt-[-14px] transition-all duration-700 ${step > s ? 'bg-white' : 'bg-white/20'}`} />}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {/* Content */}
+      <div className={`relative z-10 flex-1 flex ${isLanding ? 'items-start pt-0' : 'items-center'} justify-center px-6 py-8`}>
+        <div className="w-full max-w-2xl">
+
+          {/* ═══ STEP 1: Ethereal Cloud Landing ═══ */}
+          {step === 1 && (
+            <div className="animate-fade-in w-full max-w-4xl mx-auto flex flex-col items-center justify-center relative">
+              {/* Cloud image — bobs up and down */}
+              <div className="absolute inset-0 flex items-center justify-center floating-cloud">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="Pink ethereal cloud"
+                  className="w-[700px] max-w-[90vw] h-auto object-contain drop-shadow-2xl"
+                  src="/Cloud.png"
+                />
+              </div>
+
+              {/* All content — stays still, layered on top */}
+              <div className="relative flex items-end justify-center" style={{ minHeight: '500px' }}>
+                <div className="flex flex-col items-center justify-center text-center px-6 pb-[10%]">
+                  {/* Title */}
+                  <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight text-glow">
+                    DreamBuilder
+                  </h1>
+                  <p className="mt-2 text-sm md:text-base text-white/80 font-medium tracking-wide text-glow-soft">
+                    Powered by AI. Built for WordPress.
+                  </p>
+                  <p className="mt-3 text-xs md:text-sm text-white font-semibold max-w-md text-glow-soft">
+                    Describe your dream website, and we&apos;ll hand you a complete, installable WordPress theme in 30 seconds.
+                  </p>
+
+                  {/* Input bar — ON the cloud with pixie dust */}
+                  <div className="w-full max-w-lg mt-6 px-4 relative pixie-dust">
+                    <div className="sparkle-field">
+                      <span /><span /><span /><span /><span /><span />
+                    </div>
+                    <div className="relative flex items-end">
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder={displayPlaceholder}
+                        rows={2}
+                        style={{ maxHeight: '6.5rem' }}
+                        className="w-full py-4 px-6 pr-14 bg-white/95 backdrop-blur border-0 rounded-3xl text-base text-gray-700 pixie-glow focus:ring-4 focus:ring-[#F3A8B1]/30 focus:outline-none transition-all duration-300 placeholder:text-gray-300 resize-none overflow-y-auto"
+                      />
+                      <button
+                        onClick={goNext}
+                        disabled={!canProceedFromStep1}
+                        aria-label="Submit"
+                        className={`absolute right-2 bottom-2.5 p-2.5 rounded-full transition-colors duration-300 cursor-pointer ${
+                          canProceedFromStep1
+                            ? 'bg-[#7b9fc4] text-white hover:bg-[#6a8fb4] shadow-md'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        <ArrowRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ═══ STEP 2: Visual Vibe + Images + URL ═══ */}
+          {step === 2 && (
+            <div className="animate-fade-in space-y-8">
+              <div className="text-center space-y-3">
+                <h2 className="text-3xl font-bold tracking-tight text-white text-glow">Choose your vibe</h2>
+                <p className="text-white/60">Pick a mood, drop in inspiration, or paste a URL to steal a design system.</p>
+              </div>
+
+              {error && (
+                <div className="bg-white/90 border border-red-300 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-red-500 text-sm">{error}</p>
+                </div>
+              )}
+
+              {/* Vibe Cards with images */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {VIBES.map((v) => {
+                  const data = VIBE_DATA[v];
+                  return (
+                    <button key={v} onClick={() => setVibe(vibe === v ? '' : v)}
+                      className={`vibe-card group relative rounded-xl border text-center transition-all cursor-pointer overflow-hidden ${vibe === v ? 'border-white ring-2 ring-white/60 shadow-lg scale-[1.03]' : 'border-white/20 hover:border-white/50'}`}>
+                      {/* Background image */}
+                      <div className="relative w-full aspect-[4/3]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={`/vibes/${v}.jpg`} alt={v} className="w-full h-full object-cover" />
+                        {/* Overlay gradient for text readability */}
+                        <div className={`absolute inset-0 transition-opacity duration-300 ${vibe === v ? 'bg-black/10' : 'bg-black/30 group-hover:bg-black/0'}`} />
+                        {/* Label */}
+                        <div className="absolute bottom-0 inset-x-0 p-2 text-center">
+                          <div className="text-sm font-bold text-white drop-shadow-md">{v.charAt(0).toUpperCase() + v.slice(1)}</div>
+                          <div className="text-[10px] text-white/70">{data.desc}</div>
+                        </div>
+                        {/* Check mark */}
+                        {vibe === v && <div className="absolute top-2 right-2"><Check className="w-5 h-5 text-white drop-shadow-md" /></div>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Inspiration Images Upload */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-white/80 flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-white/60" /> Drop in inspiration images
+                  <span className="text-xs text-white/40">(up to 3)</span>
+                </p>
+
+                <div className="flex gap-3 items-start">
+                  {uploadedImages.map((img, i) => (
+                    <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/30 group shadow-lg">
+                      <img src={img.preview} alt={img.name} className="w-full h-full object-cover" />
+                      <button onClick={() => removeImage(i)} className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {uploadedImages.length < 3 && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const files = e.dataTransfer.files;
+                        if (!files) return;
+                        for (const file of Array.from(files)) {
+                          if (uploadedImages.length >= 3) break;
+                          if (!file.type.startsWith('image/')) continue;
+                          if (file.size > 5 * 1024 * 1024) continue;
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            const result = reader.result as string;
+                            const base64 = result.split(',')[1];
+                            setUploadedImages((prev) => [...prev.slice(0, 2), { data: base64, mimeType: file.type, preview: result, name: file.name }]);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-24 h-24 rounded-xl border-2 border-dashed border-white/30 hover:border-white/60 flex flex-col items-center justify-center gap-1 text-white/40 hover:text-white/70 transition-all cursor-pointer">
+                      <Upload className="w-5 h-5" />
+                      <span className="text-xs">Drop or click</span>
+                    </button>
+                  )}
+
+                  <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                </div>
+              </div>
+
+              {/* URL Design Extraction */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-white/80 flex items-center gap-2">
+                  <Link className="w-4 h-4 text-white/60" /> Borrow a design from any website
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={referenceUrl}
+                    onChange={(e) => setReferenceUrl(e.target.value)}
+                    placeholder="https://stripe.com"
+                    className="flex-1 bg-white/15 backdrop-blur border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/40"
+                  />
+                  <button onClick={handleExtractUrl} disabled={!referenceUrl.trim() || extracting}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${referenceUrl.trim() && !extracting ? 'bg-white/20 text-white hover:bg-white/30 cursor-pointer' : 'bg-white/5 text-white/30 cursor-not-allowed'}`}>
+                    {extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Extract'}
+                  </button>
+                </div>
+
+                {extractedDesign && (
+                  <div className="bg-white/15 backdrop-blur border border-white/20 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-xs text-emerald-300">
+                      <Check className="w-3.5 h-3.5" /> Design extracted from {extractedDesign.url}
+                    </div>
+                    {extractedDesign.colors.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/50">Colors:</span>
+                        <div className="flex gap-1">
+                          {extractedDesign.colors.slice(0, 8).map((c) => (
+                            <div key={c} className="w-5 h-5 rounded-md border border-white/30 shadow-sm" style={{ backgroundColor: c }} title={c} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {extractedDesign.fontFamilies.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/50">Fonts:</span>
+                        <span className="text-xs text-white/80">{extractedDesign.fontFamilies.join(', ')}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-white/50">Mood:</span>
+                      <span className="text-xs text-white/80">{extractedDesign.mood}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Optional refinements */}
+              <div className="grid grid-cols-2 gap-3">
+                <input type="text" value={colorPreferences} onChange={(e) => setColorPreferences(e.target.value)} placeholder="Color hints: dark, pastel..."
+                  className="bg-white/15 backdrop-blur border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/40" />
+                <input type="text" value={fontPreferences} onChange={(e) => setFontPreferences(e.target.value)} placeholder="Font hints: serif, modern..."
+                  className="bg-white/15 backdrop-blur border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/40" />
+              </div>
+
+              <button onClick={goNext}
+                className="w-full py-3 px-6 rounded-full font-semibold text-base bg-white text-[#e8818b] hover:bg-white/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ether-shadow">
+                Next <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* ═══ STEP 3: Site Type ═══ */}
+          {step === 3 && (
+            <div className="animate-fade-in space-y-8">
+              <div className="text-center space-y-3">
+                <h2 className="text-3xl font-bold tracking-tight text-white text-glow">What kind of site?</h2>
+                <p className="text-white/60">This helps us pick the right patterns and layout.</p>
+              </div>
+
+              {error && (
+                <div className="bg-white/90 border border-red-300 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-red-500 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {SITE_TYPES.map((t) => {
+                  const data = SITE_TYPE_DATA[t];
+                  return (
+                    <button key={t} onClick={() => setSiteType(siteType === t ? '' : t)}
+                      className={`vibe-card relative py-6 px-4 rounded-xl border text-center transition-all cursor-pointer backdrop-blur ${siteType === t ? 'border-white bg-white/30 ring-1 ring-white/40 shadow-lg' : 'border-white/20 bg-white/10 hover:bg-white/20 hover:border-white/40'}`}>
+                      <div className="text-2xl mb-2">{data.icon}</div>
+                      <div className={`text-sm font-semibold ${siteType === t ? 'text-white' : 'text-white/80'}`}>{t.charAt(0).toUpperCase() + t.slice(1)}</div>
+                      <div className="text-xs text-white/50 mt-0.5">{data.desc}</div>
+                      {siteType === t && <div className="absolute top-2 right-2"><Check className="w-4 h-4 text-white" /></div>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Brief Summary */}
+              <div className="bg-white/15 backdrop-blur border border-white/20 rounded-xl p-4 space-y-2">
+                <p className="text-xs text-white/50 font-medium uppercase tracking-wider">Your theme brief</p>
+                <p className="text-sm text-white/90">&ldquo;{description}&rdquo;</p>
+                <div className="flex gap-2 flex-wrap">
+                  {vibe && <span className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">{vibe}</span>}
+                  {siteType && <span className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">{siteType}</span>}
+                  {uploadedImages.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">{uploadedImages.length} image{uploadedImages.length > 1 ? 's' : ''}</span>}
+                  {extractedDesign && <span className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30">URL design</span>}
+                  {colorPreferences && <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/70">{colorPreferences}</span>}
+                  {fontPreferences && <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/70">{fontPreferences}</span>}
+                </div>
+              </div>
+
+              <button onClick={handleGenerate}
+                className="w-full py-4 px-6 rounded-full font-bold text-lg bg-white text-[#e8818b] hover:bg-white/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ether-shadow">
+                <Sparkles className="w-5 h-5" /> Build My Dream
+              </button>
+            </div>
+          )}
+
+          {/* ═══ STEP 4: Building ═══ */}
+          {step === 4 && (
+            <div className="animate-fade-in text-center space-y-10 py-8">
+              <div className="space-y-4">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/20 border border-white/30">
+                  <Loader2 className="w-10 h-10 text-white animate-spin" />
+                </div>
+                <h2 className="text-3xl font-bold text-white text-glow">Building your dream...</h2>
+                <p className="text-white/50">This typically takes 15-30 seconds.</p>
+              </div>
+              <div className="max-w-sm mx-auto space-y-4">
+                {GENERATION_STAGES.map((stage, i) => (
+                  <div key={stage.label} className={`flex items-center gap-4 text-sm transition-all duration-500 ${i <= generationStage ? 'opacity-100' : 'opacity-30'}`}>
+                    {i < generationStage ? (
+                      <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center shrink-0"><Check className="w-4 h-4 text-white" /></div>
+                    ) : i === generationStage ? (
+                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0"><Loader2 className="w-4 h-4 text-white animate-spin" /></div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><span className="text-sm">{stage.icon}</span></div>
+                    )}
+                    <span className={i <= generationStage ? 'text-white' : 'text-white/40'}>{stage.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ STEP 5: Result ═══ */}
+          {step === 5 && metadata && (
+            <div className="animate-fade-in space-y-6">
+              <div className="text-center space-y-4">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/30 border border-white/40">
+                  <Check className="w-10 h-10 text-white" />
+                </div>
+                <h2 className="text-3xl font-bold text-white text-glow">Your dream is ready!</h2>
+                <p className="text-white/60"><strong className="text-white">{metadata.name}</strong></p>
+              </div>
+
+              {/* Accessibility Score */}
+              {accessibility && (
+                <div className="bg-white/90 backdrop-blur rounded-2xl p-6 space-y-4 shadow-lg text-gray-900">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-[#F3A8B1]" /> Accessibility Score
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-3xl font-bold ${accessibility.grade === 'A' ? 'text-emerald-500' : accessibility.grade === 'B' ? 'text-emerald-400' : accessibility.grade === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{accessibility.grade}</span>
+                      <span className="text-sm text-gray-400">{accessibility.overall}/100</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {accessibility.checks.map((check) => (
+                      <div key={check.name} className="flex items-start gap-2 text-sm">
+                        <div className="mt-0.5 shrink-0">
+                          {check.status === 'pass' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> :
+                           check.status === 'warn' ? <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> :
+                           <X className="w-3.5 h-3.5 text-red-500" />}
+                        </div>
+                        <div>
+                          <span className="text-gray-700">{check.name}</span>
+                          <p className="text-xs text-gray-400">{check.details}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Theme Summary */}
+              <div className="bg-white/90 backdrop-blur rounded-2xl p-6 space-y-4 shadow-lg text-gray-900">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-400 text-xs uppercase tracking-wider">Name</span>
+                    <p className="text-gray-900 font-medium mt-0.5">{metadata.name}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-xs uppercase tracking-wider">Slug</span>
+                    <p className="text-gray-900 font-mono mt-0.5">{metadata.slug}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-400 text-xs uppercase tracking-wider">Description</span>
+                    <p className="text-gray-700 mt-0.5">{metadata.description}</p>
+                  </div>
+                </div>
+                <div className="border-t border-gray-200 pt-4">
+                  <span className="text-xs text-gray-400 block mb-2">{metadata.files.length} files generated</span>
+                  <div className="flex flex-wrap gap-1">
+                    {metadata.files.map((f) => (
+                      <span key={f} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md font-mono">{f}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="border-t border-gray-200 pt-4 flex gap-4 text-xs text-gray-400">
+                  <span>Model: {metadata.model}</span>
+                  <span>Tokens: {metadata.tokensUsed.toLocaleString()}</span>
+                  {metadata.repairAttempts > 0 && <span>Repairs: {metadata.repairAttempts}</span>}
+                </div>
+              </div>
+
+              {/* WordPress Playground Preview Toggle */}
+              <button onClick={() => setShowPreview(!showPreview)}
+                className="w-full py-3 px-4 rounded-xl border border-white/30 bg-white/15 backdrop-blur text-white hover:bg-white/25 transition-all flex items-center justify-center gap-2 cursor-pointer text-sm font-medium">
+                <Eye className="w-4 h-4" /> {showPreview ? 'Hide' : 'Show'} WordPress Playground Preview
+              </button>
+
+              {showPreview && (
+                <div className="rounded-2xl overflow-hidden border border-white/30 bg-white shadow-lg" style={{ height: '500px' }}>
+                  <iframe
+                    src="https://playground.wordpress.net/"
+                    className="w-full h-full"
+                    title="WordPress Playground Preview"
+                  />
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button onClick={handleDownload}
+                  className="flex-1 py-3.5 px-6 rounded-full font-bold bg-white text-[#e8818b] hover:bg-white/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ether-shadow">
+                  <Download className="w-5 h-5" /> Download ZIP
+                </button>
+                <button onClick={handleReset}
+                  className="py-3.5 px-5 rounded-full font-medium border border-white/30 text-white hover:bg-white/15 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
+                  <RotateCcw className="w-4 h-4" /> New
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </main>
-    </div>
+      </div>
+
+      <footer className="relative z-10 px-6 py-4 text-center text-xs text-white/30">
+        DreamBuilder — Powered by AI. Built for WordPress.
+      </footer>
+    </main>
   );
 }

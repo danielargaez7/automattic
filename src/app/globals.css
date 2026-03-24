@@ -1,26 +1,202 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  /* Light / ethereal palette */
+  --color-brand: #F3A8B1;
+  --color-brand-light: #fce4e8;
+  --color-brand-hover: #f09aa5;
+
+  /* Dark palette for inner steps */
+  --color-zinc-950: #09090b;
+  --color-zinc-900: #18181b;
+  --color-zinc-800: #27272a;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-600: #52525b;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-50: #fafafa;
+  --color-violet-500: #8b5cf6;
+  --color-violet-400: #a78bfa;
+  --color-violet-300: #c4b5fd;
+  --color-fuchsia-500: #d946ef;
+  --color-fuchsia-400: #e879f9;
+  --color-fuchsia-300: #f0abfc;
+  --color-indigo-500: #6366f1;
+  --color-emerald-500: #10b981;
+  --color-emerald-400: #34d399;
+  --color-amber-400: #fbbf24;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Pixie dust sparkles ── */
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0) translateY(0); }
+  20% { opacity: 1; transform: scale(1) translateY(-5px); }
+  80% { opacity: 0.6; transform: scale(0.8) translateY(-15px); }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes sparkle2 {
+  0%, 100% { opacity: 0; transform: scale(0) translateY(0) rotate(0deg); }
+  30% { opacity: 1; transform: scale(1.2) translateY(-10px) rotate(45deg); }
+  70% { opacity: 0.4; transform: scale(0.5) translateY(-25px) rotate(90deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.pixie-dust {
+  position: relative;
+}
+
+.pixie-dust::before,
+.pixie-dust::after {
+  content: '✦';
+  position: absolute;
+  pointer-events: none;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 12px rgba(243, 168, 177, 0.6);
+}
+
+.pixie-dust::before {
+  top: -8px;
+  left: -12px;
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+.pixie-dust::after {
+  bottom: -8px;
+  right: -12px;
+  animation: sparkle2 2.5s ease-in-out infinite 0.5s;
+}
+
+.pixie-glow {
+  box-shadow:
+    0 10px 40px -10px rgba(243, 168, 177, 0.3),
+    0 0 30px rgba(255, 255, 255, 0.15),
+    0 0 60px rgba(243, 168, 177, 0.1);
+}
+
+/* Sparkle particles around the input */
+.sparkle-field {
+  position: absolute;
+  inset: -20px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sparkle-field span {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8), 0 0 12px rgba(243, 168, 177, 0.5);
+}
+
+.sparkle-field span:nth-child(1) { top: 10%; left: 5%; animation: sparkle 3s infinite 0s; }
+.sparkle-field span:nth-child(2) { top: 60%; left: 2%; animation: sparkle2 2.5s infinite 0.3s; }
+.sparkle-field span:nth-child(3) { top: 20%; right: 3%; animation: sparkle 2s infinite 0.7s; }
+.sparkle-field span:nth-child(4) { top: 70%; right: 8%; animation: sparkle2 3.5s infinite 1s; }
+.sparkle-field span:nth-child(5) { top: 5%; right: 15%; animation: sparkle 2.8s infinite 0.5s; }
+.sparkle-field span:nth-child(6) { bottom: 5%; left: 12%; animation: sparkle2 2.2s infinite 1.2s; }
+
+/* ── Floating cloud animation ── */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+.floating-cloud {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ── Ethereal input shadow ── */
+.ether-shadow {
+  box-shadow: 0 10px 40px -10px rgba(243, 168, 177, 0.3);
+}
+
+/* ── Hero background gradient ── */
+.hero-bg-blend {
+  background: url('/bg-pink.png') center center / cover no-repeat;
+}
+
+/* ── Text glow on cloud ── */
+.text-glow {
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+.text-glow-soft {
+  text-shadow:
+    0 0 3px rgba(0, 0, 0, 0.9),
+    0 0 6px rgba(0, 0, 0, 0.5),
+    0 0 15px rgba(255, 255, 255, 0.4);
+}
+
+/* ── Dark dream background for inner steps ── */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.dream-bg {
+  background: linear-gradient(135deg, #09090b 0%, #1e1b4b 25%, #4c1d95 40%, #1e1b4b 55%, #09090b 70%, #18181b 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 20s ease infinite;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.orb-1 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, #8b5cf6, transparent);
+  top: -100px; right: -100px;
+  animation: float 8s ease-in-out infinite;
+}
+
+.orb-2 {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, #d946ef, transparent);
+  bottom: -50px; left: -50px;
+  animation: float 12s ease-in-out infinite 2s;
+}
+
+.orb-3 {
+  width: 250px; height: 250px;
+  background: radial-gradient(circle, #6366f1, transparent);
+  top: 40%; left: 60%;
+  animation: float 10s ease-in-out infinite 4s;
+}
+
+/* ── Step tracker ── */
+.step-dot { transition: all 0.3s ease; }
+.step-line { transition: all 0.5s ease; }
+
+/* ── Card hover ── */
+.vibe-card { transition: all 0.2s ease; }
+.vibe-card:hover { transform: translateY(-2px); }
+
+/* ── Fade in ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.5s ease forwards;
 }
