@@ -1,52 +1,97 @@
 # What I'd Do Next
 
+## What's Already Shipped (MVP)
+
+To set context for what "next" means — the current MVP already includes:
+
+- Live WordPress Playground preview with the generated theme auto-installed
+- 3 parallel variations with a visual picker (color swatches + accessibility grade)
+- WCAG AA accessibility scoring on every generation
+- Two-pass generation (token lock → full spec)
+- Dominant color extraction from inspiration images (pixel-level, not AI guessing)
+- Automatic reference image injection from a curated library by vibe + site type
+- URL design extraction (CSS scraping → color + font palette)
+- Automatic Anthropic fallback if Gemini fails
+
+The items below are what comes *after* this foundation.
+
+---
+
 ## With Another Week
 
 ### Formal Block Validation Pipeline
-Build a proper WordPress block grammar parser that validates generated markup against the Gutenberg block specification — not just regex checks. This would catch nesting errors, invalid attribute combinations, and deprecated block syntax before they reach the user.
 
-### Live WordPress Playground Preview
-Embed a WordPress Playground iframe that loads the generated theme in a real WordPress environment. Users would see their theme rendered exactly as it would appear on a live site, with responsive preview toggles (desktop/tablet/mobile).
+The current integrity checks verify file structure and forbid `wp:html`. What's missing is a grammar-level validator for block markup — one that verifies attribute schemas, nesting rules, and block support levels against the Gutenberg specification.
+
+This matters because a block can be syntactically valid HTML-comment-wise but semantically broken (e.g., a `wp:cover` with a `layout` attribute that the installed Gutenberg version doesn't support). A formal parser would catch these before the ZIP is packaged.
+
+Approach: Parse the block comment attributes as JSON, validate against a local copy of the Gutenberg block.json manifests for each block type.
 
 ### Iterative Refinement via Chat
-After the initial generation, let users make incremental changes: "Make the header sticky," "Switch to a darker palette," "Add a pricing section." Each change would produce a diff-based Theme Spec update rather than a full regeneration, preserving previous customizations.
 
-### Multi-Option Style Tiles
-Generate 3 distinct style variations simultaneously (Refined, Bold, Warm) by making parallel LLM calls with different design direction prompts. Present them as visual cards with palette strips and typography samples so users can pick their preferred direction.
+After the initial generation, let users make incremental changes: *"Make the header sticky,"* *"Switch to a darker palette,"* *"Add a pricing section."*
 
-### WooCommerce Starter Patterns
-Add product grid, cart summary, and checkout flow patterns that work with WooCommerce blocks. This would make the generated themes immediately useful for e-commerce sites.
+The key architectural requirement: produce a **diff-based ThemeSpec update**, not a full regeneration. The user's previous choices should be preserved. Implementation would require serializing the current ThemeSpec as context in the refinement prompt and constraining the AI to only modify the fields relevant to the request.
+
+This is the highest-value UX improvement available — it changes DreamBuilder from a one-shot generator into a design tool.
+
+### Keyword-Based Reference Library Matching
+
+Currently the reference library matches on `vibe + siteType`. A garden blog and a hiking blog both hit `organic/` — but they want very different aesthetics.
+
+Extend the lookup to scan the user's description for content keywords (plants, food, architecture, fashion, dark, etc.) and match against subject-matter image categories. A garden blog gets nature images. A restaurant gets food photography. This requires building the library with 8-12 content categories and ~5 images each.
+
+### WordPress.com OAuth Publish Flow
+
+A "Publish to WordPress.com" button that completes the loop: describe → generate → live site. The WordPress.com REST API supports theme upload at `POST /rest/v1.1/sites/{id}/themes/upload`. Requires OAuth 2.0 with `themes` scope. The UI work is mostly done — what's needed is the OAuth flow and the upload call.
+
+---
 
 ## For Production Readiness
 
-### Visual Regression Testing
-Screenshot comparison of generated themes across browser engines to catch rendering issues. Run generated themes through Playwright to verify they render correctly at multiple viewport sizes.
+### URL Extraction Security Hardening
+
+The `/api/extract-design` endpoint fetches arbitrary user-provided URLs. In production it needs:
+- Block list for private IP ranges (localhost, 192.168.x.x, 169.254.x.x) to prevent SSRF
+- Explicit timeout and response size caps
+- Domain allowlist option for enterprise deployments
 
 ### Rate Limiting and Cost Controls
-Per-user generation limits, token budget monitoring, and graceful degradation when approaching API limits. Track cost-per-generation to ensure sustainability.
 
-### Block Grammar Parser
-A formal parser for WordPress block markup that validates nesting rules, attribute schemas, and block support levels. The current integrity checks catch structural issues but don't validate block-level semantics.
+Per-user generation limits (IP-based or session-based), token budget monitoring per request, and graceful degradation when approaching API limits. At current token usage (~6-10k per generation with two-pass + 3 variations), unconstrained usage would be expensive quickly.
 
-### Accessibility Scoring
-Run axe-core on the Playground preview and display a WCAG compliance score. Flag specific issues (missing alt text patterns, color contrast in patterns, keyboard navigation). This aligns with Automattic's democratization mission.
+### Async Generation Queue
 
-### MCP Tool Exposure
-Package the generation pipeline as an MCP (Model Context Protocol) tool that AI agents can invoke programmatically. This follows WordPress.com's direction with scoped access and revocation for AI agent connectivity.
+Theme generation takes 20-45 seconds with 3 parallel variations. At scale, this needs to move to an async job queue (BullMQ or similar): return a job ID immediately, poll for completion, stream progress events via SSE. The synchronous API route approach doesn't survive concurrent load.
 
-## For Scaling
+### Visual Regression Testing
 
-### Generation Queue
-Move theme generation to async job processing (e.g., BullMQ) to handle concurrent users without timeout issues. Return a job ID immediately and poll for completion.
+Run generated themes through Playwright against WordPress Playground: screenshot at 3 viewport sizes, compare against a baseline. Catch rendering regressions when the codegen or block markup changes. This is the only way to confidently refactor the pattern library without breaking visual output.
 
-### Template Library Crowdsourcing
-Allow users to contribute patterns back to a community library, expanding the design vocabulary over time. Curate submissions with automated quality checks and human review.
+### `.env.example` and Local Setup Hardening
+
+Add a proper `.env.example` with placeholder values so `cp .env.example .env.local` is the only setup step. Document what happens if only one of the two API keys is provided (Gemini-only, Anthropic-only modes).
+
+---
+
+## For Scaling Dynamic Features
+
+### Generation Queue with Streaming Progress
+
+The current polling approach (timer-incremented UI stage) is cosmetic — the stages don't reflect actual pipeline progress. Real streaming would use Server-Sent Events to emit progress from the pipeline as each validation layer completes. More honest UX and better developer visibility into where time is spent.
 
 ### Fine-Tuned Model
-Train a specialized model on the WordPress block theme corpus for higher-quality, more reliable structured output. The current prompt engineering works well but a fine-tuned model would reduce repair loop frequency and improve design creativity.
 
-### WordPress.com API Integration
-Direct theme deployment to WordPress.com sites via REST API, closing the loop from generation to live site. This would be the ultimate "describe it and it's live" experience.
+The current prompt engineering works reliably, but repair loop frequency (currently ~15% of generations need at least one repair) indicates the base model has non-trivial misalignment with the ThemeSpec schema. A fine-tuned model trained on ThemeSpec examples would reduce repair frequency, improve design creativity, and produce richer pattern selection. The ThemeSpec format is simple enough that a training dataset of ~500 curated examples would meaningfully improve output quality.
 
-### Plugin Marketplace Submission
-Validate generated themes against WordPress.org theme review requirements for marketplace submission. Add screenshot generation, proper licensing headers, and review-ready documentation.
+### Template Library Crowdsourcing
+
+Allow users to contribute patterns back to a community library. Generated patterns that score A on accessibility and pass all validators automatically qualify for community review. This expands the 20-pattern vocabulary over time without requiring core engineering work for each new pattern type.
+
+### MCP Tool Exposure
+
+Package the generation pipeline as an MCP (Model Context Protocol) server. This would allow AI coding assistants (Claude Code, Cursor, etc.) to invoke `generate_wordpress_theme` as a tool call from inside a development workflow. An engineer building a client site could describe it in natural language and receive a theme ZIP without leaving their editor. This aligns with where AI-native tooling is headed.
+
+### Plugin Marketplace Submission Pipeline
+
+Validate generated themes against WordPress.org theme review requirements: screenshot generation, proper licensing headers, no deprecated functions, accessibility statement. Automate the submission package. The gap between "generates a valid theme" and "passes WordPress.org review" is mostly documentation and metadata — worth closing for themes users want to distribute.
