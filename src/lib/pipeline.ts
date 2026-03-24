@@ -4,6 +4,7 @@ import { AnthropicProvider } from './ai/anthropic';
 import { GeminiProvider } from './ai/gemini';
 import { packageTheme, type PackageResult } from './packager/zip';
 import { scoreAccessibility, type AccessibilityScore } from './validators/accessibility';
+import { findReferenceImage } from './utils/reference-library';
 
 export interface PipelineResult {
   packageResult: PackageResult;
@@ -30,8 +31,25 @@ function getProvider(): ThemeGenerationProvider {
 export async function runPipeline(input: UserInput): Promise<PipelineResult> {
   const provider = getProvider();
 
+  // Auto-inject reference library image if user provided no inspiration images
+  let enrichedInput = input;
+  if (!input.inspirationImages || input.inspirationImages.length === 0) {
+    const ref = await findReferenceImage(input.vibe, input.siteType);
+    if (ref) {
+      enrichedInput = { ...input, inspirationImages: [ref] };
+    }
+  }
+
   // Step 1: Generate Theme Spec via LLM (includes validation + repair loop)
-  const generation = await provider.generateThemeSpec(input);
+  // Fall back to Anthropic if primary provider fails
+  let generation: GenerationResult;
+  try {
+    generation = await provider.generateThemeSpec(enrichedInput);
+  } catch (primaryError) {
+    console.warn('Primary AI provider failed, falling back to Anthropic:', primaryError);
+    const fallback = new AnthropicProvider();
+    generation = await fallback.generateThemeSpec(enrichedInput);
+  }
 
   // Step 2: Package into ZIP (includes codegen + integrity check)
   const packageResult = await packageTheme(generation.spec);

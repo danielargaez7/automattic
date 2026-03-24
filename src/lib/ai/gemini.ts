@@ -3,10 +3,19 @@ import type { ThemeGenerationProvider, GenerationResult } from './provider';
 import type { UserInput } from '../schemas/user-input';
 import { getSystemPrompt } from './prompts/system-prompt';
 import { getPromptTemplate, getCurrentVersion } from './prompts/registry';
+import { buildDesignTokensPrompt } from './prompts/design-tokens-prompt';
 import { buildRepairPrompt } from './repair';
 import { validateThemeSpec } from '../validators/pipeline';
+import { extractDominantColors } from '../utils/extract-colors';
 
 const MAX_REPAIR_ATTEMPTS = 3;
+
+interface LockedTokens {
+  colors: Array<{ slug: string; name: string; hex: string; role: string }>;
+  headingFont: { family: string; googleFont: boolean };
+  bodyFont: { family: string; googleFont: boolean };
+  mood: string;
+}
 
 export class GeminiProvider implements ThemeGenerationProvider {
   readonly name = 'gemini';
@@ -25,42 +34,72 @@ export class GeminiProvider implements ThemeGenerationProvider {
   async generateThemeSpec(input: UserInput): Promise<GenerationResult> {
     const promptTemplate = getPromptTemplate();
     const systemPrompt = getSystemPrompt();
-    const userPrompt = promptTemplate.buildUserPrompt(input);
 
     let totalTokens = 0;
     let repairAttempts = 0;
 
-    // Build multimodal parts
+    // ── PASS 1: Extract dominant colors from images ──
+    const allExtractedColors: string[] = [];
+    const imageParts: Part[] = [];
+
+    if (input.inspirationImages && input.inspirationImages.length > 0) {
+      for (const img of input.inspirationImages) {
+        try {
+          const colors = await extractDominantColors(img.data, img.mimeType, 6);
+          allExtractedColors.push(...colors);
+        } catch { /* fall back to visual only */ }
+        imageParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+      }
+    }
+    const uniqueColors = [...new Set(allExtractedColors)].slice(0, 10);
+
+    // ── PASS 2: Lock design tokens first ──
+    let lockedTokens: LockedTokens | null = null;
+    try {
+      const tokenPrompt = buildDesignTokensPrompt(input, uniqueColors);
+      const tokenParts: Part[] = [];
+      if (imageParts.length > 0) {
+        tokenParts.push({ text: 'Inspiration images:\n' });
+        tokenParts.push(...imageParts);
+        tokenParts.push({ text: '\n' });
+      }
+      tokenParts.push({ text: tokenPrompt });
+      const tokenResponse = await this.callApi('You are a visual designer. Output only JSON.', tokenParts, 1024);
+      totalTokens += tokenResponse.tokensUsed;
+      lockedTokens = JSON.parse(tokenResponse.content.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')) as LockedTokens;
+    } catch { /* if pass 1 fails, continue to pass 2 without locked tokens */ }
+
+    // ── PASS 3: Generate full theme spec with locked tokens ──
+    const userPrompt = promptTemplate.buildUserPrompt(input);
     const parts: Part[] = [];
 
-    // Add inspiration images if provided
-    if (input.inspirationImages && input.inspirationImages.length > 0) {
+    if (imageParts.length > 0) {
       parts.push({
-        text: 'Here are inspiration images the user uploaded. Analyze the colors, mood, typography style, and visual patterns. Use these as strong design direction for the theme:\n',
+        text: `Inspiration images:\n` +
+          (uniqueColors.length > 0 ? `EXACT pixel colors from these images: ${uniqueColors.join(', ')}\n` : ''),
       });
-
-      for (const img of input.inspirationImages) {
-        parts.push({
-          inlineData: {
-            mimeType: img.mimeType,
-            data: img.data,
-          },
-        });
-      }
-
+      parts.push(...imageParts);
       parts.push({ text: '\n' });
     }
 
-    // Add extracted design context if available
+    if (lockedTokens) {
+      parts.push({
+        text: `\n⚠️ LOCKED DESIGN TOKENS — you MUST use these exact values, do not change them:\n` +
+          `Colors: ${JSON.stringify(lockedTokens.colors)}\n` +
+          `Heading font: ${lockedTokens.headingFont.family}\n` +
+          `Body font: ${lockedTokens.bodyFont.family}\n` +
+          `Mood: ${lockedTokens.mood}\n\n`,
+      });
+    }
+
     if (input.extractedDesign) {
       parts.push({
-        text: `\nDesign system extracted from a reference URL:\n${JSON.stringify(input.extractedDesign, null, 2)}\nUse these as strong guidance for the color palette, typography, and spacing.\n\n`,
+        text: `Design system from reference URL:\nColors: ${(input.extractedDesign.colors ?? []).join(', ')}\nFonts: ${(input.extractedDesign.fontFamilies ?? []).join(', ')}\nMood: ${input.extractedDesign.mood}\n\n`,
       });
     }
 
     parts.push({ text: userPrompt });
 
-    // Initial generation
     const initialResponse = await this.callApi(systemPrompt, parts);
     totalTokens += initialResponse.tokensUsed;
     let lastSpec = initialResponse.content;
@@ -98,7 +137,8 @@ export class GeminiProvider implements ThemeGenerationProvider {
 
   private async callApi(
     systemPrompt: string,
-    parts: Part[]
+    parts: Part[],
+    maxTokens = 8192
   ): Promise<{ content: string; tokensUsed: number }> {
     try {
       const model = this.client.getGenerativeModel({
@@ -109,8 +149,8 @@ export class GeminiProvider implements ThemeGenerationProvider {
       const result = await model.generateContent({
         contents: [{ role: 'user', parts }],
         generationConfig: {
-          maxOutputTokens: 4096,
-          temperature: 0.7,
+          maxOutputTokens: maxTokens,
+          temperature: 0.8,
         },
       });
 

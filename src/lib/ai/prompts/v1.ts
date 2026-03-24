@@ -13,23 +13,45 @@ export function buildUserPrompt(input: UserInput): string {
   }
 
   if (input.vibe) {
-    parts.push(`Visual Vibe: ${input.vibe}`);
+    parts.push(`Visual Vibe: ${input.vibe} — let this vibe drive every design decision`);
   }
 
   if (input.colorPreferences) {
-    parts.push(`Color Preferences: ${input.colorPreferences}`);
+    parts.push(`Color Preferences (user-specified, take these seriously): ${input.colorPreferences}`);
   }
 
   if (input.fontPreferences) {
-    parts.push(`Font Preferences: ${input.fontPreferences}`);
+    parts.push(`Font Preferences (user-specified): ${input.fontPreferences}`);
   }
 
   if (input.pages && input.pages.length > 0) {
     parts.push(`Pages to include: ${input.pages.join(', ')}`);
   }
 
+  if (input.inspirationImages && input.inspirationImages.length > 0) {
+    parts.push(
+      `\nIMPORTANT — Inspiration images were provided above. You MUST:\n` +
+      `1. Visually analyze each image carefully\n` +
+      `2. Extract the exact dominant hex color values you see (backgrounds, buttons, text, accents)\n` +
+      `3. Use those extracted colors as your color palette — do NOT invent different colors\n` +
+      `4. Match the typography mood (serif vs sans, weight, formality) visible in the images\n` +
+      `5. Mirror the overall layout density and visual style you observe`
+    );
+  }
+
+  if (input.extractedDesign) {
+    parts.push(
+      `\nDesign system extracted from reference URL:\n` +
+      `Colors found: ${(input.extractedDesign.colors ?? []).join(', ')}\n` +
+      `Fonts found: ${(input.extractedDesign.fontFamilies ?? []).join(', ')}\n` +
+      `Mood: ${input.extractedDesign.mood}\n` +
+      `Use these colors and fonts as your primary palette.`
+    );
+  }
+
   parts.push(
-    `\nRemember: Output ONLY the raw JSON object. No code fences. No explanations. The "base" color is the background; "contrast" is the main text color. Ensure high contrast between them.`
+    `\nDesign brief: Create something DISTINCTIVE and BEAUTIFUL. Rich color palette, expressive typography, patterns that bring the site to life. Think senior agency designer, not generic template.\n` +
+    `\nOutput ONLY the raw JSON object. No code fences. No explanations. Ensure high contrast between "base" (background) and "contrast" (text) colors — minimum 4.5:1 ratio.`
   );
 
   return parts.join('\n');

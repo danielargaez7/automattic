@@ -5,6 +5,7 @@ import { getSystemPrompt } from './prompts/system-prompt';
 import { getPromptTemplate, getCurrentVersion } from './prompts/registry';
 import { buildRepairPrompt } from './repair';
 import { validateThemeSpec } from '../validators/pipeline';
+import { extractDominantColors } from '../utils/extract-colors';
 
 const MAX_REPAIR_ATTEMPTS = 3;
 
@@ -29,8 +30,24 @@ export class AnthropicProvider implements ThemeGenerationProvider {
     let repairAttempts = 0;
     let lastSpec: string = '';
 
+    // Extract colors from inspiration images (Anthropic can't see images, but can use extracted values)
+    let enrichedPrompt = userPrompt;
+    if (input.inspirationImages && input.inspirationImages.length > 0) {
+      const allColors: string[] = [];
+      for (const img of input.inspirationImages) {
+        try {
+          const colors = await extractDominantColors(img.data, img.mimeType, 6);
+          allColors.push(...colors);
+        } catch { /* ignore */ }
+      }
+      const unique = [...new Set(allColors)].slice(0, 10);
+      if (unique.length > 0) {
+        enrichedPrompt += `\n\nEXACT dominant colors extracted from the user's inspiration images — use these hex values directly in your palette:\n${unique.join(', ')}`;
+      }
+    }
+
     // Initial generation
-    const initialResponse = await this.callApi(systemPrompt, userPrompt);
+    const initialResponse = await this.callApi(systemPrompt, enrichedPrompt);
     totalTokens += initialResponse.tokensUsed;
     lastSpec = initialResponse.content;
 
@@ -72,8 +89,8 @@ export class AnthropicProvider implements ThemeGenerationProvider {
     try {
       const response = await this.client.messages.create({
         model: this.model,
-        max_tokens: 4096,
-        system: systemPrompt,
+        max_tokens: 8192,
+        system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }] as Parameters<typeof this.client.messages.create>[0]['system'],
         messages: [{ role: 'user', content: userPrompt }],
       });
 

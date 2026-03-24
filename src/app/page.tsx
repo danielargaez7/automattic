@@ -35,6 +35,13 @@ interface AccessibilityScoreData {
   checks: AccessibilityCheck[];
 }
 
+interface ColorToken {
+  slug: string;
+  name: string;
+  hex: string;
+  role: string;
+}
+
 interface GenerationMetadata {
   name: string;
   slug: string;
@@ -43,6 +50,13 @@ interface GenerationMetadata {
   model: string;
   tokensUsed: number;
   repairAttempts: number;
+  colors?: ColorToken[];
+}
+
+interface ThemeVariation {
+  zip: string;
+  metadata: GenerationMetadata;
+  accessibility: AccessibilityScoreData;
 }
 
 interface UploadedImage {
@@ -105,9 +119,13 @@ export default function Home() {
   const [accessibility, setAccessibility] = useState<AccessibilityScoreData | null>(null);
   const [generationStage, setGenerationStage] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+  const [variations, setVariations] = useState<ThemeVariation[]>([]);
+  const [selectedVariation, setSelectedVariation] = useState<number | null>(null);
+  const playgroundRef = useRef<HTMLIFrameElement>(null);
 
   // Image upload state
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [extractedPalette, setExtractedPalette] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // URL extraction state
@@ -197,18 +215,18 @@ export default function Home() {
       if (file.size > 5 * 1024 * 1024) continue; // 5MB max
 
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const result = reader.result as string;
         const base64 = result.split(',')[1];
         setUploadedImages((prev) => [
           ...prev.slice(0, 2),
-          {
-            data: base64,
-            mimeType: file.type,
-            preview: result,
-            name: file.name,
-          },
+          { data: base64, mimeType: file.type, preview: result, name: file.name },
         ]);
+        const colors = await extractColorsFromImage(result);
+        setExtractedPalette((prev) => {
+          const combined = [...new Set([...prev, ...colors])].slice(0, 10);
+          return combined;
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -218,6 +236,48 @@ export default function Home() {
 
   function removeImage(index: number) {
     setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // ─── Client-side palette extraction via Canvas ───
+  function extractColorsFromImage(dataUrl: string): Promise<string[]> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve([]); return; }
+        ctx.drawImage(img, 0, 0, 64, 64);
+        const data = ctx.getImageData(0, 0, 64, 64).data;
+        const buckets = new Map<string, number>();
+        for (let i = 0; i < data.length; i += 4) {
+          const r = Math.round(data[i] / 24) * 24;
+          const g = Math.round(data[i + 1] / 24) * 24;
+          const b = Math.round(data[i + 2] / 24) * 24;
+          const brightness = (r + g + b) / 3;
+          if (brightness > 240 || brightness < 15) continue;
+          const key = `${r},${g},${b}`;
+          buckets.set(key, (buckets.get(key) || 0) + 1);
+        }
+        const sorted = [...buckets.entries()].sort((a, b) => b[1] - a[1]);
+        const picked: string[] = [];
+        for (const [key] of sorted) {
+          if (picked.length >= 6) break;
+          const [r, g, b] = key.split(',').map(Number);
+          const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+          const tooClose = picked.some(existing => {
+            const er = parseInt(existing.slice(1, 3), 16);
+            const eg = parseInt(existing.slice(3, 5), 16);
+            const eb = parseInt(existing.slice(5, 7), 16);
+            return Math.sqrt((er - r) ** 2 + (eg - g) ** 2 + (eb - b) ** 2) < 60;
+          });
+          if (!tooClose) picked.push(hex);
+        }
+        resolve(picked);
+      };
+      img.src = dataUrl;
+    });
   }
 
   // ─── URL Extraction ───
@@ -252,13 +312,18 @@ export default function Home() {
     setError('');
     setStep(4);
     setGenerationStage(0);
+    setVariations([]);
+    setSelectedVariation(null);
 
     const stageInterval = setInterval(() => {
       setGenerationStage((prev) => Math.min(prev + 1, GENERATION_STAGES.length - 1));
     }, 2500);
 
     try {
-      const body: Record<string, unknown> = { description: description.trim() };
+      const body: Record<string, unknown> = {
+        description: description.trim(),
+        variations: true,
+      };
       if (siteType) body.siteType = siteType;
       if (vibe) body.vibe = vibe;
       if (colorPreferences) body.colorPreferences = colorPreferences;
@@ -269,9 +334,7 @@ export default function Home() {
           mimeType: img.mimeType,
         }));
       }
-      if (extractedDesign) {
-        body.extractedDesign = extractedDesign;
-      }
+      if (extractedDesign) body.extractedDesign = extractedDesign;
 
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -287,15 +350,70 @@ export default function Home() {
       }
 
       const data = await res.json();
-      setZipData(data.zip);
-      setMetadata(data.metadata);
-      setAccessibility(data.accessibility);
-      setStep(5);
+
+      if (data.variations && data.variations.length > 0) {
+        setVariations(data.variations);
+        setStep(5);
+      } else {
+        setZipData(data.zip);
+        setMetadata(data.metadata);
+        setAccessibility(data.accessibility);
+        setStep(5);
+      }
     } catch (err: unknown) {
       clearInterval(stageInterval);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setStep(3);
     }
+  }
+
+  function selectVariation(index: number) {
+    const v = variations[index];
+    setSelectedVariation(index);
+    setZipData(v.zip);
+    setMetadata(v.metadata);
+    setAccessibility(v.accessibility);
+  }
+
+  async function loadThemeInPlayground() {
+    if (!zipData || !playgroundRef.current) return;
+    try {
+      const { startPlaygroundWeb } = await import('@wp-playground/client');
+      const client = await startPlaygroundWeb({
+        iframe: playgroundRef.current,
+        remoteUrl: 'https://playground.wordpress.net/remote.html',
+      });
+      await client.isReady();
+      const bytes = Uint8Array.from(atob(zipData), (c) => c.charCodeAt(0));
+      const file = new File([bytes], `${metadata?.slug || 'theme'}.zip`, { type: 'application/zip' });
+      await client.installTheme({ zipFile: file, activate: true });
+
+      // Seed sample content based on site type
+      const sampleContent = getSampleContent(siteType, metadata?.name || 'My Site');
+      for (const post of sampleContent) {
+        await client.run({ code: post });
+      }
+    } catch (e) {
+      console.warn('Playground theme load failed:', e);
+    }
+  }
+
+  function getSampleContent(type: string, themeName: string): string[] {
+    const base = [
+      `<?php wp_insert_post(['post_title' => 'Welcome to ${themeName}', 'post_content' => 'This is your new WordPress site, beautifully designed and ready to customize.', 'post_status' => 'publish', 'post_type' => 'page']);`,
+    ];
+    if (type === 'blog') {
+      return [...base,
+        `<?php wp_insert_post(['post_title' => 'My First Post', 'post_content' => 'Welcome to the blog. This is where great stories begin.', 'post_status' => 'publish']);`,
+        `<?php wp_insert_post(['post_title' => 'Getting Started', 'post_content' => 'Here are a few tips to help you make the most of your new site.', 'post_status' => 'publish']);`,
+      ];
+    }
+    if (type === 'portfolio') {
+      return [...base,
+        `<?php wp_insert_post(['post_title' => 'Project One', 'post_content' => 'A showcase of our finest work. Clean, bold, memorable.', 'post_status' => 'publish']);`,
+      ];
+    }
+    return base;
   }
 
   function handleDownload() {
@@ -323,9 +441,12 @@ export default function Home() {
     setMetadata(null);
     setAccessibility(null);
     setUploadedImages([]);
+    setExtractedPalette([]);
     setReferenceUrl('');
     setExtractedDesign(null);
     setShowPreview(false);
+    setVariations([]);
+    setSelectedVariation(null);
   }
 
   // Grade color helper
@@ -429,8 +550,8 @@ export default function Home() {
                         aria-label="Submit"
                         className={`absolute right-2 bottom-2.5 p-2.5 rounded-full transition-colors duration-300 cursor-pointer ${
                           canProceedFromStep1
-                            ? 'bg-[#7b9fc4] text-white hover:bg-[#6a8fb4] shadow-md'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            ? 'bg-[#007AFF] text-white hover:bg-[#0066dd] shadow-md'
+                            : 'bg-[#007AFF]/50 text-white/60 cursor-not-allowed'
                         }`}
                       >
                         <ArrowRight className="w-5 h-5" />
@@ -445,10 +566,10 @@ export default function Home() {
 
           {/* ═══ STEP 2: Visual Vibe + Images + URL ═══ */}
           {step === 2 && (
-            <div className="animate-fade-in space-y-8">
-              <div className="text-center space-y-3">
+            <div className="animate-fade-in space-y-6">
+              <div className="text-center space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight text-white text-glow">Choose your vibe</h2>
-                <p className="text-white/60">Pick a mood, drop in inspiration, or paste a URL to steal a design system.</p>
+                <p className="text-white/60">Pick a mood, drop in inspiration, or borrow a design system.</p>
               </div>
 
               {error && (
@@ -458,135 +579,146 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Vibe Cards with images */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {VIBES.map((v) => {
-                  const data = VIBE_DATA[v];
-                  return (
-                    <button key={v} onClick={() => setVibe(vibe === v ? '' : v)}
-                      className={`vibe-card group relative rounded-xl border text-center transition-all cursor-pointer overflow-hidden ${vibe === v ? 'border-white ring-2 ring-white/60 shadow-lg scale-[1.03]' : 'border-white/20 hover:border-white/50'}`}>
-                      {/* Background image */}
-                      <div className="relative w-full aspect-[4/3]">
+              {/* Three-column layout */}
+              <div className="grid grid-cols-3 gap-4 items-stretch">
+
+                {/* LEFT — Pick a mood */}
+                <div className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-3 flex flex-col gap-2">
+                  <p className="text-xs font-semibold text-white/80 mb-1">Pick a mood</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {VIBES.map((v) => {
+                      const data = VIBE_DATA[v];
+                      return (
+                        <button key={v} onClick={() => setVibe(vibe === v ? '' : v)}
+                          className={`vibe-card group relative rounded-xl border text-center transition-all cursor-pointer overflow-hidden ${vibe === v ? 'border-white ring-2 ring-white/60 shadow-lg scale-[1.02]' : 'border-white/20 hover:border-white/50'}`}>
+                          <div className="relative w-full aspect-[5/4]">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={`/vibes/${v}.jpg`} alt={v} className="w-full h-full object-cover" />
+                            <div className={`absolute inset-0 transition-opacity duration-300 ${vibe === v ? 'bg-black/10' : 'bg-black/35 group-hover:bg-black/0'}`} />
+                            <div className="absolute bottom-0 inset-x-0 p-1 text-center">
+                              <div className="text-[11px] font-bold text-white drop-shadow-md">{v.charAt(0).toUpperCase() + v.slice(1)}</div>
+                              <div className="text-[9px] text-white/70 hidden sm:block">{data.desc}</div>
+                            </div>
+                            {vibe === v && <div className="absolute top-1 right-1"><Check className="w-3.5 h-3.5 text-white drop-shadow-md" /></div>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* MIDDLE — Drop images */}
+                <div className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-3 flex flex-col gap-2">
+                  <p className="text-xs font-semibold text-white/80 flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" /> Drop images
+                    <span className="text-white/40 font-normal">(up to 3)</span>
+                  </p>
+                  <div className="flex-1 flex flex-col gap-2">
+                    {uploadedImages.map((img, i) => (
+                      <div key={i} className="relative w-full h-20 rounded-xl overflow-hidden border border-white/30 group">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={`/vibes/${v}.jpg`} alt={v} className="w-full h-full object-cover" />
-                        {/* Overlay gradient for text readability */}
-                        <div className={`absolute inset-0 transition-opacity duration-300 ${vibe === v ? 'bg-black/10' : 'bg-black/30 group-hover:bg-black/0'}`} />
-                        {/* Label */}
-                        <div className="absolute bottom-0 inset-x-0 p-2 text-center">
-                          <div className="text-sm font-bold text-white drop-shadow-md">{v.charAt(0).toUpperCase() + v.slice(1)}</div>
-                          <div className="text-[10px] text-white/70">{data.desc}</div>
-                        </div>
-                        {/* Check mark */}
-                        {vibe === v && <div className="absolute top-2 right-2"><Check className="w-5 h-5 text-white drop-shadow-md" /></div>}
+                        <img src={img.preview} alt={img.name} className="w-full h-full object-cover" />
+                        <button onClick={() => removeImage(i)} className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                          <X className="w-3 h-3 text-white" />
+                        </button>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
+                    ))}
+                    {uploadedImages.length < 3 && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const files = e.dataTransfer.files;
+                          if (!files) return;
+                          for (const file of Array.from(files)) {
+                            if (uploadedImages.length >= 3) break;
+                            if (!file.type.startsWith('image/')) continue;
+                            if (file.size > 5 * 1024 * 1024) continue;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              const result = reader.result as string;
+                              const base64 = result.split(',')[1];
+                              setUploadedImages((prev) => [...prev.slice(0, 2), { data: base64, mimeType: file.type, preview: result, name: file.name }]);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="flex-1 min-h-[120px] w-full rounded-xl border-2 border-dashed border-white/25 hover:border-white/50 flex flex-col items-center justify-center gap-2 text-white/40 hover:text-white/70 transition-all cursor-pointer">
+                        <Upload className="w-6 h-6" />
+                        <span className="text-xs">Drop or click to upload</span>
+                      </button>
+                    )}
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                  {/* Extracted palette preview */}
+                  {extractedPalette.length > 0 && (
+                    <div className="pt-1">
+                      <p className="text-[10px] text-white/50 mb-1">Extracted palette</p>
+                      <div className="flex gap-1 flex-wrap">
+                        {extractedPalette.map((c) => (
+                          <div key={c} className="w-5 h-5 rounded-md border border-white/20 shadow-sm" style={{ backgroundColor: c }} title={c} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-              {/* Inspiration Images Upload */}
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-white/80 flex items-center gap-2">
-                  <Upload className="w-4 h-4 text-white/60" /> Drop in inspiration images
-                  <span className="text-xs text-white/40">(up to 3)</span>
-                </p>
+                {/* RIGHT — Borrow URL + font/color hints */}
+                <div className="flex flex-col gap-3">
 
-                <div className="flex gap-3 items-start">
-                  {uploadedImages.map((img, i) => (
-                    <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/30 group shadow-lg">
-                      <img src={img.preview} alt={img.name} className="w-full h-full object-cover" />
-                      <button onClick={() => removeImage(i)} className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                        <X className="w-3 h-3 text-white" />
+                  {/* Borrow a design */}
+                  <div className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-3 space-y-2">
+                    <p className="text-xs font-semibold text-white/80 flex items-center gap-1.5">
+                      <Link className="w-3.5 h-3.5" /> Borrow a design from any website
+                    </p>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="url"
+                        value={referenceUrl}
+                        onChange={(e) => setReferenceUrl(e.target.value)}
+                        placeholder="https://stripe.com"
+                        className="flex-1 min-w-0 bg-white/15 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/40"
+                      />
+                      <button onClick={handleExtractUrl} disabled={!referenceUrl.trim() || extracting}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 ${referenceUrl.trim() && !extracting ? 'bg-white/20 text-white hover:bg-white/30 cursor-pointer' : 'bg-white/5 text-white/30 cursor-not-allowed'}`}>
+                        {extracting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Go'}
                       </button>
                     </div>
-                  ))}
-
-                  {uploadedImages.length < 3 && (
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const files = e.dataTransfer.files;
-                        if (!files) return;
-                        for (const file of Array.from(files)) {
-                          if (uploadedImages.length >= 3) break;
-                          if (!file.type.startsWith('image/')) continue;
-                          if (file.size > 5 * 1024 * 1024) continue;
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            const result = reader.result as string;
-                            const base64 = result.split(',')[1];
-                            setUploadedImages((prev) => [...prev.slice(0, 2), { data: base64, mimeType: file.type, preview: result, name: file.name }]);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                      className="w-24 h-24 rounded-xl border-2 border-dashed border-white/30 hover:border-white/60 flex flex-col items-center justify-center gap-1 text-white/40 hover:text-white/70 transition-all cursor-pointer">
-                      <Upload className="w-5 h-5" />
-                      <span className="text-xs">Drop or click</span>
-                    </button>
-                  )}
-
-                  <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
-                </div>
-              </div>
-
-              {/* URL Design Extraction */}
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-white/80 flex items-center gap-2">
-                  <Link className="w-4 h-4 text-white/60" /> Borrow a design from any website
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={referenceUrl}
-                    onChange={(e) => setReferenceUrl(e.target.value)}
-                    placeholder="https://stripe.com"
-                    className="flex-1 bg-white/15 backdrop-blur border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/40"
-                  />
-                  <button onClick={handleExtractUrl} disabled={!referenceUrl.trim() || extracting}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${referenceUrl.trim() && !extracting ? 'bg-white/20 text-white hover:bg-white/30 cursor-pointer' : 'bg-white/5 text-white/30 cursor-not-allowed'}`}>
-                    {extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Extract'}
-                  </button>
-                </div>
-
-                {extractedDesign && (
-                  <div className="bg-white/15 backdrop-blur border border-white/20 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-xs text-emerald-300">
-                      <Check className="w-3.5 h-3.5" /> Design extracted from {extractedDesign.url}
-                    </div>
-                    {extractedDesign.colors.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-white/50">Colors:</span>
-                        <div className="flex gap-1">
-                          {extractedDesign.colors.slice(0, 8).map((c) => (
-                            <div key={c} className="w-5 h-5 rounded-md border border-white/30 shadow-sm" style={{ backgroundColor: c }} title={c} />
-                          ))}
+                    {extractedDesign && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-300">
+                          <Check className="w-3 h-3" /> Extracted
                         </div>
+                        {extractedDesign.colors.length > 0 && (
+                          <div className="flex gap-1 flex-wrap">
+                            {extractedDesign.colors.slice(0, 6).map((c) => (
+                              <div key={c} className="w-4 h-4 rounded border border-white/30" style={{ backgroundColor: c }} title={c} />
+                            ))}
+                          </div>
+                        )}
+                        <div className="text-[10px] text-white/60">{extractedDesign.mood}</div>
                       </div>
                     )}
-                    {extractedDesign.fontFamilies.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-white/50">Fonts:</span>
-                        <span className="text-xs text-white/80">{extractedDesign.fontFamilies.join(', ')}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-white/50">Mood:</span>
-                      <span className="text-xs text-white/80">{extractedDesign.mood}</span>
-                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Optional refinements */}
-              <div className="grid grid-cols-2 gap-3">
-                <input type="text" value={colorPreferences} onChange={(e) => setColorPreferences(e.target.value)} placeholder="Color hints: dark, pastel..."
-                  className="bg-white/15 backdrop-blur border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/40" />
-                <input type="text" value={fontPreferences} onChange={(e) => setFontPreferences(e.target.value)} placeholder="Font hints: serif, modern..."
-                  className="bg-white/15 backdrop-blur border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/40" />
+                  {/* Font / color hints */}
+                  <div className="flex-1 bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-3 flex flex-col gap-2">
+                    <p className="text-xs font-semibold text-white/80">Describe in detail font or color hints</p>
+                    <textarea
+                      value={`${colorPreferences}${colorPreferences && fontPreferences ? '\n' : ''}${fontPreferences}`}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setColorPreferences(val);
+                        setFontPreferences('');
+                      }}
+                      placeholder={"e.g. dark navy with gold accents, modern sans-serif"}
+                      className="flex-1 w-full bg-white/15 border border-white/20 rounded-xl px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/40 resize-none"
+                    />
+                  </div>
+
+                </div>
               </div>
 
               <button onClick={goNext}
@@ -675,15 +807,48 @@ export default function Home() {
           )}
 
           {/* ═══ STEP 5: Result ═══ */}
-          {step === 5 && metadata && (
+          {step === 5 && (variations.length > 0 || metadata) && (
             <div className="animate-fade-in space-y-6">
               <div className="text-center space-y-4">
                 <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/30 border border-white/40">
                   <Check className="w-10 h-10 text-white" />
                 </div>
-                <h2 className="text-3xl font-bold text-white text-glow">Your dream is ready!</h2>
-                <p className="text-white/60"><strong className="text-white">{metadata.name}</strong></p>
+                <h2 className="text-3xl font-bold text-white text-glow">
+                  {variations.length > 0 && selectedVariation === null
+                    ? 'Pick your favorite'
+                    : `Your dream ${siteType || 'site'} is ready!`}
+                </h2>
+                {metadata && <p className="text-white/60"><strong className="text-white">{metadata.name}</strong></p>}
               </div>
+
+              {/* ── Variation picker ── */}
+              {variations.length > 0 && selectedVariation === null && (
+                <div className="space-y-3">
+                  <p className="text-center text-white/60 text-sm">We generated 3 variations — pick the one that speaks to you</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {variations.map((v, i) => (
+                      <button key={i} onClick={() => selectVariation(i)}
+                        className="bg-white/10 backdrop-blur border border-white/20 hover:border-white/60 rounded-2xl p-4 text-left space-y-3 transition-all cursor-pointer hover:scale-[1.02]">
+                        <div className="flex gap-1.5">
+                          {(v.metadata.colors || []).slice(0, 5).map((c) => (
+                            <div key={c.slug} className="flex-1 h-8 rounded-lg" style={{ backgroundColor: c.hex }} title={c.name} />
+                          ))}
+                        </div>
+                        <div>
+                          <p className="text-white font-semibold text-sm">{v.metadata.name}</p>
+                          <p className="text-white/50 text-xs mt-0.5 line-clamp-2">{v.metadata.description}</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-bold ${v.accessibility.grade === 'A' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {v.accessibility.grade} {v.accessibility.overall}/100
+                          </span>
+                          <span className="text-xs text-white/40">{v.metadata.files.length} files</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Accessibility Score */}
               {accessibility && (
@@ -716,6 +881,7 @@ export default function Home() {
               )}
 
               {/* Theme Summary */}
+              {metadata && (
               <div className="bg-white/90 backdrop-blur rounded-2xl p-6 space-y-4 shadow-lg text-gray-900">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -745,34 +911,54 @@ export default function Home() {
                   {metadata.repairAttempts > 0 && <span>Repairs: {metadata.repairAttempts}</span>}
                 </div>
               </div>
+              )}
 
               {/* WordPress Playground Preview Toggle */}
-              <button onClick={() => setShowPreview(!showPreview)}
-                className="w-full py-3 px-4 rounded-xl border border-white/30 bg-white/15 backdrop-blur text-white hover:bg-white/25 transition-all flex items-center justify-center gap-2 cursor-pointer text-sm font-medium">
-                <Eye className="w-4 h-4" /> {showPreview ? 'Hide' : 'Show'} WordPress Playground Preview
-              </button>
+              {metadata && (
+                <>
+                  <button onClick={async () => {
+                    setShowPreview((v) => !v);
+                    if (!showPreview) setTimeout(() => loadThemeInPlayground(), 1500);
+                  }}
+                    className="w-full py-3 px-4 rounded-xl border border-white/30 bg-white/15 backdrop-blur text-white hover:bg-white/25 transition-all flex items-center justify-center gap-2 cursor-pointer text-sm font-medium">
+                    <Eye className="w-4 h-4" /> {showPreview ? 'Hide' : 'Preview in WordPress Playground'}
+                  </button>
 
-              {showPreview && (
-                <div className="rounded-2xl overflow-hidden border border-white/30 bg-white shadow-lg" style={{ height: '500px' }}>
-                  <iframe
-                    src="https://playground.wordpress.net/"
-                    className="w-full h-full"
-                    title="WordPress Playground Preview"
-                  />
-                </div>
+                  {showPreview && (
+                    <div className="rounded-2xl overflow-hidden border border-white/30 bg-white shadow-lg" style={{ height: '520px' }}>
+                      <iframe
+                        ref={playgroundRef}
+                        src="https://playground.wordpress.net/remote.html"
+                        className="w-full h-full"
+                        title="WordPress Playground Preview"
+                      />
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Actions */}
-              <div className="flex gap-3">
-                <button onClick={handleDownload}
-                  className="flex-1 py-3.5 px-6 rounded-full font-bold bg-white text-[#e8818b] hover:bg-white/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ether-shadow">
-                  <Download className="w-5 h-5" /> Download ZIP
-                </button>
-                <button onClick={handleReset}
-                  className="py-3.5 px-5 rounded-full font-medium border border-white/30 text-white hover:bg-white/15 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
-                  <RotateCcw className="w-4 h-4" /> New
-                </button>
-              </div>
+              {metadata && (
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <button onClick={handleDownload}
+                      className="flex-1 py-3.5 px-6 rounded-full font-bold bg-white text-[#e8818b] hover:bg-white/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ether-shadow">
+                      <Download className="w-5 h-5" /> Download ZIP
+                    </button>
+                    <button onClick={handleReset}
+                      className="py-3.5 px-5 rounded-full font-medium border border-white/30 text-white hover:bg-white/15 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
+                      <RotateCcw className="w-4 h-4" /> New
+                    </button>
+                  </div>
+                  <a
+                    href="https://wordpress.com/themes"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 px-6 rounded-full font-semibold text-sm border border-white/30 text-white/80 hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
+                    <Cloud className="w-4 h-4" /> Publish to WordPress.com
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>

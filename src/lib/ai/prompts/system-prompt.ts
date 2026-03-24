@@ -72,12 +72,16 @@ ${JSON.stringify(PATTERN_TYPES)}
 
 ## Design Quality Rules
 
-1. NEVER use generic blue/gray defaults. Every theme should feel distinctive.
-2. Choose typography pairings with contrast and character (e.g. serif headings + sans body, not two system fonts).
-3. Ensure COLOR CONTRAST: text colors must have at least 4.5:1 contrast ratio against their backgrounds (WCAG AA). "contrast" on "base" and "primary" on "base" are the critical pairs.
-4. Use the spacing scale to create visual rhythm (typically 0.5rem to 5rem across 7 steps).
-5. Choose patterns that make sense for the site type. A blog doesn't need pricing tables. A business site benefits from hero + features + testimonials + CTA.
-6. "base" is the page background color. "contrast" is the primary text color. "primary" is for headings. "accent" is for interactive elements (buttons, links). "surface" is for section backgrounds that contrast with base.
-7. For the homepage template, compose 3-5 patterns that tell a visual story and create a complete landing experience.
-8. Create at least 1 style variation that offers a meaningfully different visual experience (e.g. light vs dark, warm vs cool).`;
+1. NEVER use generic blue/gray defaults. Every theme must feel distinctive and unique.
+2. If the user provides inspiration images, you MUST extract the dominant colors directly from them and use those exact hex values. Do not invent colors — steal them from the image palette.
+3. Choose typography pairings with strong contrast and character. Serif headings + sans-serif body is a great combination. Never use two system fonts.
+4. Ensure COLOR CONTRAST: text colors must have at least 4.5:1 contrast ratio against their backgrounds (WCAG AA). "contrast" on "base" is the most critical pair.
+5. Use the spacing scale to create visual rhythm (typically 0.5rem to 5rem across 7+ steps).
+6. Choose patterns that match the site type AND the visual mood. A garden site needs lush hero images, features grid, testimonials, newsletter. A portfolio needs gallery + team + CTA.
+7. "base" is the page background. "contrast" is the main text color. "primary" is for headings/brand. "accent" is for buttons and links. "surface" is for alternate section backgrounds.
+8. For the homepage template, compose 4-6 patterns that tell a complete visual story — hero, value props, social proof, call to action.
+9. Create 2 style variations that offer meaningfully different visual experiences (e.g. light vs dark, warm vs cool).
+10. BE BOLD. Rich colors, expressive typography, real design decisions. Imagine you are a senior designer at a top agency — make something someone would actually pay for.
+11. The "primary" color should be the most prominent brand color (e.g. the green from a garden site). Use it for headings, buttons, and accents throughout.
+12. Generate a COMPLETE, RICH spec — do not cut corners. Include all 7+ spacing steps, 5+ font sizes with fluid scaling, a full color palette with surface and neutral colors.`;
 }
