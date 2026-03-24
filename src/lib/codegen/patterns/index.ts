@@ -14,7 +14,7 @@ import { generateBlogLatestPosts } from './blog';
 import { generateTextWithImage } from './text-image';
 import { generateLogosGrid } from './logos';
 
-type PatternGenerator = (spec: ThemeSpec, heroThemeRelPath?: string) => string;
+type PatternGenerator = (spec: ThemeSpec, imageUris: string[]) => string;
 
 const PATTERN_GENERATORS: Record<string, PatternGenerator> = {
   'hero-centered': generateHeroCentered,
@@ -42,12 +42,12 @@ const PATTERN_GENERATORS: Record<string, PatternGenerator> = {
 /**
  * Generate a pattern PHP file for a given pattern reference.
  */
-export function generatePatternFile(spec: ThemeSpec, patternRef: PatternRef, heroThemeRelPath?: string): string {
+export function generatePatternFile(spec: ThemeSpec, patternRef: PatternRef, imageUris: string[] = []): string {
   const generator = PATTERN_GENERATORS[patternRef.type];
   if (!generator) {
     throw new Error(`No generator found for pattern type: ${patternRef.type}`);
   }
-  return generator(spec, heroThemeRelPath);
+  return generator(spec, imageUris);
 }
 
 /**
@@ -55,7 +55,7 @@ export function generatePatternFile(spec: ThemeSpec, patternRef: PatternRef, her
  */
 export function generateAllPatterns(
   spec: ThemeSpec,
-  heroThemeRelPath?: string,
+  imageUris: string[] = [],
 ): Array<{ filename: string; content: string }> {
   const usedTypes = new Set<string>();
 
@@ -67,6 +67,6 @@ export function generateAllPatterns(
 
   return [...usedTypes].map((type) => ({
     filename: `${type}.php`,
-    content: generatePatternFile(spec, { type: type as PatternRef['type'] }, heroThemeRelPath),
+    content: generatePatternFile(spec, { type: type as PatternRef['type'] }, imageUris),
   }));
 }

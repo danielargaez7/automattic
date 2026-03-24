@@ -4,7 +4,7 @@ import { AnthropicProvider } from './ai/anthropic';
 import { GeminiProvider } from './ai/gemini';
 import { packageTheme, type PackageResult } from './packager/zip';
 import { scoreAccessibility, type AccessibilityScore } from './validators/accessibility';
-import { findReferenceImage } from './utils/reference-library';
+import { findReferenceImages } from './utils/reference-library';
 
 export interface PipelineResult {
   packageResult: PackageResult;
@@ -31,16 +31,14 @@ function getProvider(): ThemeGenerationProvider {
 export async function runPipeline(input: UserInput): Promise<PipelineResult> {
   const provider = getProvider();
 
-  // Auto-inject reference library image if user provided no inspiration images
+  // Auto-inject reference library images if user provided no inspiration images
   let enrichedInput = input;
-  let heroImagePath: string | undefined;
-  let heroImageMimeType: string | undefined;
+  let themeImages: Array<{ filePath: string; mimeType: string }> = [];
   if (!input.inspirationImages || input.inspirationImages.length === 0) {
-    const ref = await findReferenceImage(input.vibe, input.siteType, input.description);
-    if (ref) {
-      enrichedInput = { ...input, inspirationImages: [ref] };
-      heroImagePath = ref.filePath;
-      heroImageMimeType = ref.mimeType;
+    const refs = await findReferenceImages(6, input.vibe, input.siteType, input.description);
+    if (refs.length > 0) {
+      enrichedInput = { ...input, inspirationImages: [refs[0]] }; // first image for AI vision
+      themeImages = refs;
     }
   }
 
@@ -56,10 +54,7 @@ export async function runPipeline(input: UserInput): Promise<PipelineResult> {
   }
 
   // Step 2: Package into ZIP (includes codegen + integrity check)
-  const heroImage = heroImagePath && heroImageMimeType
-    ? { filePath: heroImagePath, mimeType: heroImageMimeType }
-    : undefined;
-  const packageResult = await packageTheme(generation.spec, { heroImage });
+  const packageResult = await packageTheme(generation.spec, { themeImages });
 
   if (!packageResult.integrity.valid) {
     const issues = packageResult.integrity.errors

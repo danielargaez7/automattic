@@ -1,12 +1,10 @@
 import type { ThemeSpec } from '../../schemas/theme-spec';
-import { patternHeader } from './utils';
+import { patternHeader, themeImgUrl } from './utils';
 
-export function generateHeroCentered(spec: ThemeSpec, heroThemeRelPath?: string): string {
+export function generateHeroCentered(spec: ThemeSpec, imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
-  const bgUrl = heroThemeRelPath
-    ? `<?php echo esc_url( get_template_directory_uri() . '/${heroThemeRelPath}' ); ?>`
-    : '';
-  const dimRatio = heroThemeRelPath ? 50 : 100;
+  const bgUrl = themeImgUrl(imageUris, 0);
+  const dimRatio = bgUrl ? 50 : 100;
   return `${patternHeader({
     title: 'Hero Centered',
     slug: `${slug}/hero-centered`,
@@ -50,11 +48,9 @@ export function generateHeroCentered(spec: ThemeSpec, heroThemeRelPath?: string)
 <!-- /wp:cover -->`;
 }
 
-export function generateHeroSplit(spec: ThemeSpec, heroThemeRelPath?: string): string {
+export function generateHeroSplit(spec: ThemeSpec, imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
-  const imgSrc = heroThemeRelPath
-    ? `<?php echo esc_url( get_template_directory_uri() . '/${heroThemeRelPath}' ); ?>`
-    : '';
+  const imgSrc = themeImgUrl(imageUris, 0);
   return `${patternHeader({
     title: 'Hero Split',
     slug: `${slug}/hero-split`,
@@ -107,11 +103,9 @@ export function generateHeroSplit(spec: ThemeSpec, heroThemeRelPath?: string): s
 <!-- /wp:group -->`;
 }
 
-export function generateHeroFullwidth(spec: ThemeSpec, heroThemeRelPath?: string): string {
+export function generateHeroFullwidth(spec: ThemeSpec, imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
-  const bgUrl = heroThemeRelPath
-    ? `<?php echo esc_url( get_template_directory_uri() . '/${heroThemeRelPath}' ); ?>`
-    : '';
+  const bgUrl = themeImgUrl(imageUris, 0);
   return `${patternHeader({
     title: 'Hero Full Width Image',
     slug: `${slug}/hero-fullwidth-image`,

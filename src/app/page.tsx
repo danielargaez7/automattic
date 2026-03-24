@@ -634,7 +634,7 @@ export default function Home() {
 
       {/* Content */}
       <div className={`relative z-10 flex-1 flex ${isLanding ? 'items-start pt-0' : 'items-center'} justify-center px-6 py-8`}>
-        <div className="w-full max-w-2xl">
+        <div className={`w-full ${step === 5 ? 'max-w-5xl' : 'max-w-2xl'}`}>
 
           {/* ═══ STEP 1: Ethereal Cloud Landing ═══ */}
           {step === 1 && (
@@ -990,7 +990,7 @@ export default function Home() {
 
               {/* ── Result grid ── */}
               {metadata && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4" style={{ gridTemplateColumns: '0.6fr 2fr' }}>
 
                   {/* LEFT COLUMN */}
                   <div className="space-y-4">
@@ -1070,18 +1070,19 @@ export default function Home() {
                     )}
 
                     {/* Playground preview — always visible */}
-                    <div className="rounded-2xl overflow-hidden border border-white/20 bg-white shadow-lg" style={{ height: '380px' }}>
+                    <div className="rounded-2xl overflow-hidden border border-white/20 bg-white shadow-lg" style={{ height: '420px' }}>
                       <div className="bg-white/5 px-3 py-2 flex items-center gap-2 border-b border-white/10">
                         <Eye className="w-3.5 h-3.5 text-white/40" />
                         <span className="text-xs text-white/40">Preview WordPress Playground</span>
                       </div>
-                      <iframe
-                        ref={playgroundRef}
-                        src="https://playground.wordpress.net/remote.html"
-                        className="w-full"
-                        style={{ height: 'calc(100% - 33px)' }}
-                        title="WordPress Playground Preview"
-                      />
+                      <div style={{ position: 'relative', overflow: 'hidden', height: 'calc(100% - 33px)' }}>
+                        <iframe
+                          ref={playgroundRef}
+                          src="https://playground.wordpress.net/remote.html"
+                          title="WordPress Playground Preview"
+                          style={{ width: '150%', height: '150%', transform: 'scale(0.667)', transformOrigin: '0 0', border: 0 }}
+                        />
+                      </div>
                     </div>
 
                   </div>

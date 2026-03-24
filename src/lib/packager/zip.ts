@@ -20,7 +20,7 @@ export interface PackageResult {
 }
 
 export interface PackageOptions {
-  heroImage?: { filePath: string; mimeType: string };
+  themeImages?: Array<{ filePath: string; mimeType: string }>;
 }
 
 /**
@@ -46,21 +46,20 @@ export async function packageTheme(spec: ThemeSpec, options?: PackageOptions): P
   files.set('parts/header.html', generateHeader(spec));
   files.set('parts/footer.html', generateFooter(spec));
 
-  // Bundle hero background image if available
-  let heroThemeRelPath: string | undefined;
-  if (options?.heroImage) {
+  // Bundle theme images as assets/images/img-1.jpg … img-N.jpg
+  const imageUris: string[] = [];
+  for (let i = 0; i < (options?.themeImages?.length ?? 0); i++) {
+    const img = options!.themeImages![i];
     try {
-      const ext = path.extname(options.heroImage.filePath).toLowerCase() || '.jpg';
-      heroThemeRelPath = `assets/images/hero-bg${ext}`;
-      binaryFiles.set(heroThemeRelPath, fs.readFileSync(options.heroImage.filePath));
-    } catch {
-      // If image can't be read, proceed without it
-      heroThemeRelPath = undefined;
-    }
+      const ext = path.extname(img.filePath).toLowerCase() || '.jpg';
+      const themeRelPath = `assets/images/img-${i + 1}${ext}`;
+      binaryFiles.set(themeRelPath, fs.readFileSync(img.filePath));
+      imageUris.push(themeRelPath);
+    } catch { /* skip unreadable files */ }
   }
 
   // Patterns
-  const patterns = generateAllPatterns(spec, heroThemeRelPath);
+  const patterns = generateAllPatterns(spec, imageUris);
   for (const p of patterns) {
     files.set(`patterns/${p.filename}`, p.content);
   }

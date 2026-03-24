@@ -188,20 +188,72 @@ function pickImageFromCategory(
   libraryDir: string,
   category: string,
 ): { data: string; mimeType: string; filePath: string } | null {
+  const results = pickImagesFromCategory(libraryDir, category, 1);
+  return results[0] ?? null;
+}
+
+function pickImagesFromCategory(
+  libraryDir: string,
+  category: string,
+  count: number,
+): Array<{ data: string; mimeType: string; filePath: string }> {
   const catDir = path.join(libraryDir, category);
-  if (!fs.existsSync(catDir)) return null;
+  if (!fs.existsSync(catDir)) return [];
 
   const files = fs.readdirSync(catDir).filter((f) =>
     /\.(jpg|jpeg|webp|png)$/i.test(f)
   );
-  if (files.length === 0) return null;
+  if (files.length === 0) return [];
 
-  const file = pickRandom(files);
-  const filePath = path.join(catDir, file);
-  const buffer = fs.readFileSync(filePath);
-  const ext = path.extname(file).toLowerCase();
-  const mimeType =
-    ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg';
+  const shuffled = [...files].sort(() => Math.random() - 0.5).slice(0, count);
 
-  return { data: buffer.toString('base64'), mimeType, filePath };
+  return shuffled.map((file) => {
+    const filePath = path.join(catDir, file);
+    const buffer = fs.readFileSync(filePath);
+    const ext = path.extname(file).toLowerCase();
+    const mimeType =
+      ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg';
+    return { data: buffer.toString('base64'), mimeType, filePath };
+  });
+}
+
+/**
+ * Find multiple matching reference images from the library (up to `count`).
+ */
+export async function findReferenceImages(
+  count: number,
+  vibe?: string,
+  siteType?: string,
+  description?: string,
+): Promise<Array<{ data: string; mimeType: string; category: string; filePath: string }>> {
+  const libraryDir = path.join(process.cwd(), 'public', 'library');
+
+  let category: string | null = description
+    ? detectCategory(description, siteType)
+    : null;
+
+  if (!category && vibe) {
+    category = VIBE_CATEGORY_MAP[vibe] ?? null;
+  }
+
+  if (category) {
+    const images = pickImagesFromCategory(libraryDir, category, count);
+    if (images.length > 0) return images.map((img) => ({ ...img, category }));
+  }
+
+  // Fallback — fill from any available category
+  const allCategories = fs.readdirSync(libraryDir).filter((f) => {
+    const full = path.join(libraryDir, f);
+    return fs.statSync(full).isDirectory();
+  });
+
+  const results: Array<{ data: string; mimeType: string; category: string; filePath: string }> = [];
+  for (const cat of allCategories) {
+    if (results.length >= count) break;
+    const needed = count - results.length;
+    const images = pickImagesFromCategory(libraryDir, cat, needed);
+    results.push(...images.map((img) => ({ ...img, category: cat })));
+  }
+
+  return results;
 }

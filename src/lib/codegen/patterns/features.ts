@@ -1,7 +1,7 @@
 import type { ThemeSpec } from '../../schemas/theme-spec';
-import { patternHeader } from './utils';
+import { patternHeader, themeImgUrl } from './utils';
 
-export function generateFeaturesGrid(spec: ThemeSpec): string {
+export function generateFeaturesGrid(spec: ThemeSpec, _imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
   return `${patternHeader({
     title: 'Features Grid',
@@ -68,8 +68,10 @@ export function generateFeaturesGrid(spec: ThemeSpec): string {
 <!-- /wp:group -->`;
 }
 
-export function generateFeaturesAlternating(spec: ThemeSpec): string {
+export function generateFeaturesAlternating(spec: ThemeSpec, imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
+  const img2 = themeImgUrl(imageUris, 2);
+  const img3 = themeImgUrl(imageUris, 3);
   return `${patternHeader({
     title: 'Features Alternating',
     slug: `${slug}/features-alternating`,
@@ -95,7 +97,7 @@ export function generateFeaturesAlternating(spec: ThemeSpec): string {
   <!-- wp:column {"width":"50%"} -->
   <div class="wp-block-column" style="flex-basis:50%">
     <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+    <figure class="wp-block-image size-large"><img src="${img2}" alt=""/></figure>
     <!-- /wp:image -->
   </div>
   <!-- /wp:column -->
@@ -111,7 +113,7 @@ export function generateFeaturesAlternating(spec: ThemeSpec): string {
   <!-- wp:column {"width":"50%"} -->
   <div class="wp-block-column" style="flex-basis:50%">
     <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+    <figure class="wp-block-image size-large"><img src="${img3}" alt=""/></figure>
     <!-- /wp:image -->
   </div>
   <!-- /wp:column -->

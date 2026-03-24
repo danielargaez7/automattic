@@ -1,8 +1,9 @@
 import type { ThemeSpec } from '../../schemas/theme-spec';
-import { patternHeader } from './utils';
+import { patternHeader, themeImgUrl } from './utils';
 
-export function generateTextWithImage(spec: ThemeSpec): string {
+export function generateTextWithImage(spec: ThemeSpec, imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
+  const imgSrc = themeImgUrl(imageUris, 1);
   return `${patternHeader({
     title: 'Text with Image',
     slug: `${slug}/text-with-image`,
@@ -35,7 +36,7 @@ export function generateTextWithImage(spec: ThemeSpec): string {
   <!-- wp:column {"width":"45%"} -->
   <div class="wp-block-column" style="flex-basis:45%">
     <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+    <figure class="wp-block-image size-large"><img src="${imgSrc}" alt=""/></figure>
     <!-- /wp:image -->
   </div>
   <!-- /wp:column -->

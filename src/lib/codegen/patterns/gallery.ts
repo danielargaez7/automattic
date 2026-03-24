@@ -1,8 +1,10 @@
 import type { ThemeSpec } from '../../schemas/theme-spec';
-import { patternHeader } from './utils';
+import { patternHeader, themeImgUrl } from './utils';
 
-export function generateGalleryGrid(spec: ThemeSpec): string {
+export function generateGalleryGrid(spec: ThemeSpec, imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
+  // Cycle through available images (modulo so we never leave blank slots)
+  const img = (i: number) => themeImgUrl(imageUris, imageUris.length ? i % imageUris.length : 0);
   return `${patternHeader({
     title: 'Gallery Grid',
     slug: `${slug}/gallery-grid`,
@@ -24,22 +26,22 @@ export function generateGalleryGrid(spec: ThemeSpec): string {
 <!-- wp:gallery {"columns":3,"linkTo":"none","align":"wide"} -->
 <figure class="wp-block-gallery alignwide has-nested-images columns-3 is-cropped">
   <!-- wp:image {"sizeSlug":"large"} -->
-  <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+  <figure class="wp-block-image size-large"><img src="${img(0)}" alt=""/></figure>
   <!-- /wp:image -->
   <!-- wp:image {"sizeSlug":"large"} -->
-  <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+  <figure class="wp-block-image size-large"><img src="${img(1)}" alt=""/></figure>
   <!-- /wp:image -->
   <!-- wp:image {"sizeSlug":"large"} -->
-  <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+  <figure class="wp-block-image size-large"><img src="${img(2)}" alt=""/></figure>
   <!-- /wp:image -->
   <!-- wp:image {"sizeSlug":"large"} -->
-  <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+  <figure class="wp-block-image size-large"><img src="${img(3)}" alt=""/></figure>
   <!-- /wp:image -->
   <!-- wp:image {"sizeSlug":"large"} -->
-  <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+  <figure class="wp-block-image size-large"><img src="${img(4)}" alt=""/></figure>
   <!-- /wp:image -->
   <!-- wp:image {"sizeSlug":"large"} -->
-  <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+  <figure class="wp-block-image size-large"><img src="${img(5)}" alt=""/></figure>
   <!-- /wp:image -->
 </figure>
 <!-- /wp:gallery -->
@@ -48,8 +50,9 @@ export function generateGalleryGrid(spec: ThemeSpec): string {
 <!-- /wp:group -->`;
 }
 
-export function generateGalleryMasonry(spec: ThemeSpec): string {
+export function generateGalleryMasonry(spec: ThemeSpec, imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
+  const img = (i: number) => themeImgUrl(imageUris, imageUris.length ? i % imageUris.length : 0);
   return `${patternHeader({
     title: 'Gallery Masonry',
     slug: `${slug}/gallery-masonry`,
@@ -73,33 +76,33 @@ export function generateGalleryMasonry(spec: ThemeSpec): string {
   <!-- wp:column -->
   <div class="wp-block-column">
     <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+    <figure class="wp-block-image size-large"><img src="${img(0)}" alt=""/></figure>
     <!-- /wp:image -->
     <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
-    <!-- /wp:image -->
-  </div>
-  <!-- /wp:column -->
-  <!-- wp:column -->
-  <div class="wp-block-column">
-    <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
-    <!-- /wp:image -->
-    <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
-    <!-- /wp:image -->
-    <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+    <figure class="wp-block-image size-large"><img src="${img(3)}" alt=""/></figure>
     <!-- /wp:image -->
   </div>
   <!-- /wp:column -->
   <!-- wp:column -->
   <div class="wp-block-column">
     <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+    <figure class="wp-block-image size-large"><img src="${img(1)}" alt=""/></figure>
     <!-- /wp:image -->
     <!-- wp:image {"sizeSlug":"large"} -->
-    <figure class="wp-block-image size-large"><img src="" alt=""/></figure>
+    <figure class="wp-block-image size-large"><img src="${img(4)}" alt=""/></figure>
+    <!-- /wp:image -->
+    <!-- wp:image {"sizeSlug":"large"} -->
+    <figure class="wp-block-image size-large"><img src="${img(2)}" alt=""/></figure>
+    <!-- /wp:image -->
+  </div>
+  <!-- /wp:column -->
+  <!-- wp:column -->
+  <div class="wp-block-column">
+    <!-- wp:image {"sizeSlug":"large"} -->
+    <figure class="wp-block-image size-large"><img src="${img(5)}" alt=""/></figure>
+    <!-- /wp:image -->
+    <!-- wp:image {"sizeSlug":"large"} -->
+    <figure class="wp-block-image size-large"><img src="${img(0)}" alt=""/></figure>
     <!-- /wp:image -->
   </div>
   <!-- /wp:column -->
