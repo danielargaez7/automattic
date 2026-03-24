@@ -40,7 +40,7 @@ export const UserInputSchema = z.object({
     .min(10, 'Description must be at least 10 characters')
     .max(2000, 'Description must be under 2000 characters'),
   siteType: z.enum(SITE_TYPES).optional(),
-  vibe: z.string().optional(),
+  vibe: z.enum(VIBES).optional(),
   colorPreferences: z.string().optional(),
   fontPreferences: z.string().optional(),
   pages: z.array(z.string()).optional(),
