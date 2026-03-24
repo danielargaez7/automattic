@@ -34,7 +34,7 @@ export async function runPipeline(input: UserInput): Promise<PipelineResult> {
   // Auto-inject reference library image if user provided no inspiration images
   let enrichedInput = input;
   if (!input.inspirationImages || input.inspirationImages.length === 0) {
-    const ref = await findReferenceImage(input.vibe, input.siteType);
+    const ref = await findReferenceImage(input.vibe, input.siteType, input.description);
     if (ref) {
       enrichedInput = { ...input, inspirationImages: [ref] };
     }
