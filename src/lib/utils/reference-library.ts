@@ -188,37 +188,18 @@ function pickImageFromCategory(
   libraryDir: string,
   category: string,
 ): { data: string; mimeType: string; filePath: string } | null {
-  const results = pickImagesFromCategory(libraryDir, category, 1);
-  return results[0] ?? null;
+  const paths = pickImagePathsFromCategory(libraryDir, category, 1);
+  if (paths.length === 0) return null;
+  const { filePath, mimeType } = paths[0];
+  const buffer = fs.readFileSync(filePath);
+  return { data: buffer.toString('base64'), mimeType, filePath };
 }
 
-function pickImagesFromCategory(
-  libraryDir: string,
-  category: string,
-  count: number,
-): Array<{ data: string; mimeType: string; filePath: string }> {
-  const catDir = path.join(libraryDir, category);
-  if (!fs.existsSync(catDir)) return [];
-
-  const files = fs.readdirSync(catDir).filter((f) =>
-    /\.(jpg|jpeg|webp|png)$/i.test(f)
-  );
-  if (files.length === 0) return [];
-
-  const shuffled = [...files].sort(() => Math.random() - 0.5).slice(0, count);
-
-  return shuffled.map((file) => {
-    const filePath = path.join(catDir, file);
-    const buffer = fs.readFileSync(filePath);
-    const ext = path.extname(file).toLowerCase();
-    const mimeType =
-      ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg';
-    return { data: buffer.toString('base64'), mimeType, filePath };
-  });
-}
 
 /**
  * Find multiple matching reference images from the library (up to `count`).
+ * Only the FIRST result has `data` loaded (for AI multimodal). The rest are
+ * path-only to avoid loading megabytes of base64 that are never needed.
  */
 export async function findReferenceImages(
   count: number,
@@ -236,24 +217,56 @@ export async function findReferenceImages(
     category = VIBE_CATEGORY_MAP[vibe] ?? null;
   }
 
+  let paths: Array<{ mimeType: string; filePath: string; category: string }> = [];
+
   if (category) {
-    const images = pickImagesFromCategory(libraryDir, category, count);
-    if (images.length > 0) return images.map((img) => ({ ...img, category }));
+    const found = pickImagePathsFromCategory(libraryDir, category, count);
+    if (found.length > 0) paths = found.map((p) => ({ ...p, category: category! }));
   }
 
-  // Fallback — fill from any available category
-  const allCategories = fs.readdirSync(libraryDir).filter((f) => {
-    const full = path.join(libraryDir, f);
-    return fs.statSync(full).isDirectory();
+  if (paths.length < count) {
+    const allCategories = fs.readdirSync(libraryDir).filter((f) =>
+      fs.statSync(path.join(libraryDir, f)).isDirectory()
+    );
+    for (const cat of allCategories) {
+      if (paths.length >= count) break;
+      const needed = count - paths.length;
+      const found = pickImagePathsFromCategory(libraryDir, cat, needed);
+      paths.push(...found.map((p) => ({ ...p, category: cat })));
+    }
+  }
+
+  // Load base64 data only for the first image (AI needs it; rest are bundled from disk)
+  return paths.map((p, i) => {
+    if (i === 0) {
+      const buf = fs.readFileSync(p.filePath);
+      return { ...p, data: buf.toString('base64') };
+    }
+    return { ...p, data: '' };
   });
+}
 
-  const results: Array<{ data: string; mimeType: string; category: string; filePath: string }> = [];
-  for (const cat of allCategories) {
-    if (results.length >= count) break;
-    const needed = count - results.length;
-    const images = pickImagesFromCategory(libraryDir, cat, needed);
-    results.push(...images.map((img) => ({ ...img, category: cat })));
-  }
+function pickImagePathsFromCategory(
+  libraryDir: string,
+  category: string,
+  count: number,
+): Array<{ mimeType: string; filePath: string }> {
+  const catDir = path.join(libraryDir, category);
+  if (!fs.existsSync(catDir)) return [];
 
-  return results;
+  const files = fs.readdirSync(catDir).filter((f) =>
+    /\.(jpg|jpeg|webp|png)$/i.test(f)
+  );
+  if (files.length === 0) return [];
+
+  return [...files]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, count)
+    .map((file) => {
+      const filePath = path.join(catDir, file);
+      const ext = path.extname(file).toLowerCase();
+      const mimeType =
+        ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg';
+      return { filePath, mimeType };
+    });
 }
