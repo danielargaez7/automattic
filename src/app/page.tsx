@@ -519,36 +519,31 @@ export default function Home() {
         remoteUrl: 'https://playground.wordpress.net/remote.html',
       });
       await client.isReady();
+
+      // Install and activate the generated theme
       const bytes = Uint8Array.from(atob(zipData), (c) => c.charCodeAt(0));
       const file = new File([bytes], `${metadata?.slug || 'theme'}.zip`, { type: 'application/zip' });
       await client.installTheme({ zipFile: file, activate: true });
 
-      // Seed sample content based on site type
-      const sampleContent = getSampleContent(siteType, metadata?.name || 'My Site');
-      for (const post of sampleContent) {
-        await client.run({ code: post });
-      }
+      // client.run() has a Comlink serialization bug in v3 — use writeFile + request instead.
+      // Write a mu-plugin that sets up the front page on first load, then clean it up.
+      const siteName = (metadata?.name || 'My Site').replace(/'/g, "\\'");
+      const setupPhp = `<?php
+add_action('init', function() {
+  if (get_option('_db_setup_done')) return;
+  update_option('blogname', '${siteName}');
+  $id = wp_insert_post(['post_title'=>'Home','post_name'=>'home','post_content'=>'','post_status'=>'publish','post_type'=>'page']);
+  update_option('show_on_front', 'page');
+  update_option('page_on_front', $id);
+  update_option('_db_setup_done', true);
+});`;
+      const muPlugin = '/wordpress/wp-content/mu-plugins/db-setup.php';
+      await client.writeFile(muPlugin, setupPhp);
+      await client.request({ url: '/' });
+      await client.unlink(muPlugin);
     } catch (e) {
       console.warn('Playground theme load failed:', e);
     }
-  }
-
-  function getSampleContent(type: string, themeName: string): string[] {
-    const base = [
-      `<?php wp_insert_post(['post_title' => 'Welcome to ${themeName}', 'post_content' => 'This is your new WordPress site, beautifully designed and ready to customize.', 'post_status' => 'publish', 'post_type' => 'page']);`,
-    ];
-    if (type === 'blog') {
-      return [...base,
-        `<?php wp_insert_post(['post_title' => 'My First Post', 'post_content' => 'Welcome to the blog. This is where great stories begin.', 'post_status' => 'publish']);`,
-        `<?php wp_insert_post(['post_title' => 'Getting Started', 'post_content' => 'Here are a few tips to help you make the most of your new site.', 'post_status' => 'publish']);`,
-      ];
-    }
-    if (type === 'portfolio') {
-      return [...base,
-        `<?php wp_insert_post(['post_title' => 'Project One', 'post_content' => 'A showcase of our finest work. Clean, bold, memorable.', 'post_status' => 'publish']);`,
-      ];
-    }
-    return base;
   }
 
   function handleDownload() {
