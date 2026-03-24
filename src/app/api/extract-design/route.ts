@@ -1,4 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import dns from 'dns/promises';
+
+const MAX_RESPONSE_BYTES = 1_000_000; // 1 MB
+
+function isPrivateIP(ip: string): boolean {
+  if (ip === '::1') return true;
+  // Unwrap IPv4-mapped IPv6
+  const addr = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+  const parts = addr.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(isNaN)) return false;
+  const [a, b] = parts;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 169 && b === 254)
+  );
+}
 
 interface ExtractedDesign {
   url: string;
@@ -30,6 +50,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
     }
 
+    // SSRF protection: resolve hostname and block private/internal IPs
+    try {
+      const { address } = await dns.lookup(parsedUrl.hostname);
+      if (isPrivateIP(address)) {
+        return NextResponse.json(
+          { error: 'Requests to private or internal addresses are not allowed' },
+          { status: 400 }
+        );
+      }
+    } catch {
+      return NextResponse.json({ error: 'Could not resolve hostname' }, { status: 400 });
+    }
+
     // Fetch the page
     const response = await fetch(parsedUrl.toString(), {
       headers: {
@@ -46,7 +79,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const html = await response.text();
+    // Size cap: reject oversized responses, truncate if content-length was absent
+    const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
+    if (contentLength > MAX_RESPONSE_BYTES) {
+      return NextResponse.json({ error: 'Page too large to process (max 1 MB)' }, { status: 400 });
+    }
+    let html = await response.text();
+    if (html.length > MAX_RESPONSE_BYTES) html = html.slice(0, MAX_RESPONSE_BYTES);
+
     const design = extractDesignFromHtml(html, parsedUrl.toString());
 
     return NextResponse.json(design);

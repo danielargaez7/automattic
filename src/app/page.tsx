@@ -73,6 +73,17 @@ interface ExtractedDesign {
   mood: string;
 }
 
+interface ThemeHistoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  colors: ColorToken[];
+  grade: string;
+  zip: string;
+  createdAt: number;
+}
+
 // ─── Constants ───
 const STEP_LABELS = ['Describe', 'Vibe', 'Site Type', 'Building', 'Result'];
 
@@ -132,6 +143,110 @@ export default function Home() {
   const [referenceUrl, setReferenceUrl] = useState('');
   const [extractedDesign, setExtractedDesign] = useState<ExtractedDesign | null>(null);
   const [extracting, setExtracting] = useState(false);
+
+  // WordPress.com publish state
+  const [wpPublishing, setWpPublishing] = useState(false);
+  const [wpPublished, setWpPublished] = useState<{ siteUrl: string; themeName: string } | null>(null);
+  const [wpSites, setWpSites] = useState<Array<{ ID: number; name: string; URL: string }>>([]);
+  const [showWpSitePicker, setShowWpSitePicker] = useState(false);
+
+  // Handle WordPress.com OAuth return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const wpAuth = params.get('wp_auth');
+    if (!wpAuth) return;
+    window.history.replaceState({}, '', '/');
+
+    if (wpAuth === 'success') {
+      try {
+        const pending = JSON.parse(localStorage.getItem('wp_pending_publish') || 'null');
+        if (!pending) return;
+        setZipData(pending.zip);
+        setMetadata((m) => m ?? { name: pending.name, slug: pending.slug, description: '', files: [], model: '', tokensUsed: 0, repairAttempts: 0, colors: [] });
+        setStep(5);
+        // Fetch sites for picker
+        fetch('/api/auth/wordpress/sites')
+          .then((r) => r.json())
+          .then(({ sites }) => {
+            if (sites?.length) {
+              setWpSites(sites);
+              setShowWpSitePicker(true);
+            }
+          })
+          .catch(() => {});
+      } catch {}
+    }
+  }, []);
+
+  function handlePublishToWordPress() {
+    if (!zipData || !metadata) return;
+    try {
+      localStorage.setItem('wp_pending_publish', JSON.stringify({ zip: zipData, slug: metadata.slug, name: metadata.name }));
+    } catch {}
+    const clientId = process.env.NEXT_PUBLIC_WORDPRESS_CLIENT_ID;
+    if (!clientId) {
+      window.open('https://wordpress.com/themes', '_blank');
+      return;
+    }
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: `${appUrl}/api/auth/wordpress/callback`,
+      response_type: 'code',
+      scope: 'global',
+    });
+    window.location.href = `https://public-api.wordpress.com/oauth2/authorize?${params}`;
+  }
+
+  async function handlePublishToSite(siteId: number, siteUrl: string) {
+    if (!zipData || !metadata) return;
+    setShowWpSitePicker(false);
+    setWpPublishing(true);
+    try {
+      const res = await fetch('/api/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zip: zipData, slug: metadata.slug, siteId }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Publish failed');
+      }
+      localStorage.removeItem('wp_pending_publish');
+      setWpPublished({ siteUrl, themeName: metadata.name });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Publish to WordPress.com failed');
+    } finally {
+      setWpPublishing(false);
+    }
+  }
+
+  // Theme history
+  const [history, setHistory] = useState<ThemeHistoryItem[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('dreambuilder_history');
+      if (stored) setHistory(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  function saveToHistory(item: ThemeHistoryItem) {
+    setHistory((prev) => {
+      const updated = [item, ...prev.filter((h) => h.id !== item.id)].slice(0, 5);
+      try { localStorage.setItem('dreambuilder_history', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  }
+
+  function loadFromHistory(item: ThemeHistoryItem) {
+    setZipData(item.zip);
+    setMetadata({ name: item.name, slug: item.slug, description: item.description, files: [], model: '', tokensUsed: 0, repairAttempts: 0, colors: item.colors });
+    setAccessibility({ overall: 0, grade: item.grade, checks: [] });
+    setVariations([]);
+    setSelectedVariation(null);
+    setStep(5);
+  }
 
   const canProceedFromStep1 = description.trim().length >= 10;
 
@@ -359,6 +474,16 @@ export default function Home() {
         setMetadata(data.metadata);
         setAccessibility(data.accessibility);
         setStep(5);
+        saveToHistory({
+          id: `${data.metadata.slug}-${Date.now()}`,
+          name: data.metadata.name,
+          slug: data.metadata.slug,
+          description: data.metadata.description,
+          colors: data.metadata.colors || [],
+          grade: data.accessibility.grade,
+          zip: data.zip,
+          createdAt: Date.now(),
+        });
       }
     } catch (err: unknown) {
       clearInterval(stageInterval);
@@ -373,6 +498,16 @@ export default function Home() {
     setZipData(v.zip);
     setMetadata(v.metadata);
     setAccessibility(v.accessibility);
+    saveToHistory({
+      id: `${v.metadata.slug}-${Date.now()}`,
+      name: v.metadata.name,
+      slug: v.metadata.slug,
+      description: v.metadata.description,
+      colors: v.metadata.colors || [],
+      grade: v.accessibility.grade,
+      zip: v.zip,
+      createdAt: Date.now(),
+    });
   }
 
   async function loadThemeInPlayground() {
@@ -447,6 +582,8 @@ export default function Home() {
     setShowPreview(false);
     setVariations([]);
     setSelectedVariation(null);
+    setWpPublishing(false);
+    setWpPublished(null);
   }
 
   // Grade color helper
@@ -560,6 +697,30 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Recent themes */}
+              {history.length > 0 && (
+                <div className="w-full max-w-lg mx-auto px-4 mt-4 space-y-2 animate-fade-in">
+                  <p className="text-xs text-white/40 font-medium uppercase tracking-wider text-center">Recent</p>
+                  <div className="space-y-2">
+                    {history.slice(0, 3).map((item) => (
+                      <button key={item.id} onClick={() => loadFromHistory(item)}
+                        className="w-full flex items-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl px-3 py-2 text-left transition-all cursor-pointer backdrop-blur">
+                        <div className="flex gap-1 shrink-0">
+                          {item.colors.slice(0, 4).map((c) => (
+                            <div key={c.slug} className="w-4 h-4 rounded" style={{ backgroundColor: c.hex }} />
+                          ))}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-xs font-medium truncate">{item.name}</p>
+                          <p className="text-white/40 text-xs truncate">{item.description}</p>
+                        </div>
+                        <span className={`text-xs font-bold shrink-0 ${item.grade === 'A' ? 'text-emerald-400' : 'text-amber-400'}`}>{item.grade}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
           )}
@@ -950,13 +1111,19 @@ export default function Home() {
                       <RotateCcw className="w-4 h-4" /> New
                     </button>
                   </div>
-                  <a
-                    href="https://wordpress.com/themes"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-3 px-6 rounded-full font-semibold text-sm border border-white/30 text-white/80 hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
-                    <Cloud className="w-4 h-4" /> Publish to WordPress.com
-                  </a>
+                  {wpPublished ? (
+                    <a href={wpPublished.siteUrl} target="_blank" rel="noopener noreferrer"
+                      className="w-full py-3 px-6 rounded-full font-semibold text-sm bg-emerald-500/80 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
+                      <Check className="w-4 h-4" /> Published! View on WordPress.com
+                    </a>
+                  ) : (
+                    <button onClick={handlePublishToWordPress} disabled={wpPublishing}
+                      className="w-full py-3 px-6 rounded-full font-semibold text-sm border border-white/30 text-white/80 hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur disabled:opacity-50 disabled:cursor-not-allowed">
+                      {wpPublishing
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</>
+                        : <><Cloud className="w-4 h-4" /> Publish to WordPress.com</>}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -967,6 +1134,32 @@ export default function Home() {
       <footer className="relative z-10 px-6 py-4 text-center text-xs text-white/30">
         DreamBuilder — Powered by AI. Built for WordPress.
       </footer>
+
+      {/* WordPress.com site picker modal */}
+      {showWpSitePicker && wpSites.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm mx-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900">Choose a site to publish to</h3>
+              <button onClick={() => setShowWpSitePicker(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {wpSites.map((site) => (
+                <button key={site.ID} onClick={() => handlePublishToSite(site.ID, site.URL)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 hover:border-[#F3A8B1] hover:bg-pink-50 transition-all cursor-pointer text-left group">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 group-hover:text-[#e8818b]">{site.name}</p>
+                    <p className="text-xs text-gray-400">{site.URL}</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#e8818b]" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
