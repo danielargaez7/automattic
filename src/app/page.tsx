@@ -672,6 +672,7 @@ export default function Home() {
                       <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && canProceedFromStep1) { e.preventDefault(); goNext(); } }}
                         placeholder={displayPlaceholder}
                         rows={2}
                         style={{ maxHeight: '6.5rem' }}
