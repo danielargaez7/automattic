@@ -514,33 +514,15 @@ export default function Home() {
     if (!zipData || !playgroundRef.current) return;
     try {
       const { startPlaygroundWeb } = await import('@wp-playground/client');
+      // Note: only installTheme works reliably in @wp-playground/client v3.1.13
+      // client.run / writeFile / request all hit a Comlink serialization bug
       const client = await startPlaygroundWeb({
         iframe: playgroundRef.current,
         remoteUrl: 'https://playground.wordpress.net/remote.html',
       });
-      await client.isReady();
-
-      // Install and activate the generated theme
       const bytes = Uint8Array.from(atob(zipData), (c) => c.charCodeAt(0));
       const file = new File([bytes], `${metadata?.slug || 'theme'}.zip`, { type: 'application/zip' });
       await client.installTheme({ zipFile: file, activate: true });
-
-      // client.run() has a Comlink serialization bug in v3 — use writeFile + request instead.
-      // Write a mu-plugin that sets up the front page on first load, then clean it up.
-      const siteName = (metadata?.name || 'My Site').replace(/'/g, "\\'");
-      const setupPhp = `<?php
-add_action('init', function() {
-  if (get_option('_db_setup_done')) return;
-  update_option('blogname', '${siteName}');
-  $id = wp_insert_post(['post_title'=>'Home','post_name'=>'home','post_content'=>'','post_status'=>'publish','post_type'=>'page']);
-  update_option('show_on_front', 'page');
-  update_option('page_on_front', $id);
-  update_option('_db_setup_done', true);
-});`;
-      const muPlugin = '/wordpress/wp-content/mu-plugins/db-setup.php';
-      await client.writeFile(muPlugin, setupPhp);
-      await client.request({ url: '/' });
-      await client.unlink(muPlugin);
     } catch (e) {
       console.warn('Playground theme load failed:', e);
     }
