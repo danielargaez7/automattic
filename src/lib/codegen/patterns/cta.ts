@@ -1,7 +1,7 @@
 import type { ThemeSpec } from '../../schemas/theme-spec';
 import { patternHeader } from './utils';
 
-export function generateCtaCentered(spec: ThemeSpec): string {
+export function generateCtaCentered(spec: ThemeSpec, _imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
   return `${patternHeader({
     title: 'Call to Action Centered',
@@ -10,8 +10,8 @@ export function generateCtaCentered(spec: ThemeSpec): string {
     keywords: 'cta, call to action, banner, centered',
   })}
 
-<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|50","right":"var:preset|spacing|50"}}},"backgroundColor":"accent","layout":{"type":"constrained","contentSize":"720px"}} -->
-<div class="wp-block-group alignfull has-accent-background-color has-background" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--50);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--50)">
+<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|50","right":"var:preset|spacing|50"}}},"gradient":"primary-to-accent","layout":{"type":"constrained","contentSize":"720px"}} -->
+<div class="wp-block-group alignfull has-primary-to-accent-gradient-background has-background" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--50);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--50)">
 
 <!-- wp:heading {"textAlign":"center","fontSize":"x-large","textColor":"contrast"} -->
 <h2 class="wp-block-heading has-text-align-center has-contrast-color has-text-color has-x-large-font-size"><?php echo esc_html_x( 'Ready to Get Started?', 'CTA heading', '${slug}' ); ?></h2>
@@ -33,7 +33,7 @@ export function generateCtaCentered(spec: ThemeSpec): string {
 <!-- /wp:group -->`;
 }
 
-export function generateCtaSplit(spec: ThemeSpec): string {
+export function generateCtaSplit(spec: ThemeSpec, _imageUris: string[] = []): string {
   const slug = spec.metadata.slug;
   return `${patternHeader({
     title: 'Call to Action Split',
@@ -42,8 +42,8 @@ export function generateCtaSplit(spec: ThemeSpec): string {
     keywords: 'cta, call to action, split, two-column',
   })}
 
-<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|50","right":"var:preset|spacing|50"}}},"backgroundColor":"surface","layout":{"type":"constrained"}} -->
-<div class="wp-block-group alignfull has-surface-background-color has-background" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--50);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--50)">
+<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80","left":"var:preset|spacing|50","right":"var:preset|spacing|50"}}},"gradient":"base-to-surface","layout":{"type":"constrained"}} -->
+<div class="wp-block-group alignfull has-base-to-surface-gradient-background has-background" style="padding-top:var(--wp--preset--spacing--80);padding-right:var(--wp--preset--spacing--50);padding-bottom:var(--wp--preset--spacing--80);padding-left:var(--wp--preset--spacing--50)">
 
 <!-- wp:columns {"align":"wide","verticalAlignment":"center"} -->
 <div class="wp-block-columns alignwide are-vertically-aligned-center">

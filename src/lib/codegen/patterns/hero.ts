@@ -13,9 +13,9 @@ export function generateHeroCentered(spec: ThemeSpec, imageUris: string[] = []):
     blockTypes: 'core/cover',
   })}
 
-<!-- wp:cover {"url":"${bgUrl}","dimRatio":${dimRatio},"overlayColor":"base","isUserOverlayColor":true,"minHeight":600,"align":"full","layout":{"type":"constrained"}} -->
+<!-- wp:cover {"url":"${bgUrl}","dimRatio":50,"gradient":"primary-to-accent","minHeight":600,"align":"full","layout":{"type":"constrained"}} -->
 <div class="wp-block-cover alignfull" style="min-height:600px">
-  <span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-${dimRatio} has-background-dim"></span>
+  <span aria-hidden="true" class="wp-block-cover__background has-primary-to-accent-gradient-background has-background-dim-50 has-background-dim"></span>
   ${bgUrl ? `<img class="wp-block-cover__image-background" alt="" src="${bgUrl}" style="object-fit:cover"/>` : ''}
   <div class="wp-block-cover__inner-container">
 
@@ -114,9 +114,9 @@ export function generateHeroFullwidth(spec: ThemeSpec, imageUris: string[] = [])
     blockTypes: 'core/cover',
   })}
 
-<!-- wp:cover {"url":"${bgUrl}","dimRatio":60,"overlayColor":"base","isUserOverlayColor":true,"minHeight":80,"minHeightUnit":"vh","align":"full","layout":{"type":"constrained"}} -->
+<!-- wp:cover {"url":"${bgUrl}","dimRatio":60,"gradient":"accent-to-primary","minHeight":80,"minHeightUnit":"vh","align":"full","layout":{"type":"constrained"}} -->
 <div class="wp-block-cover alignfull" style="min-height:80vh">
-  <span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-60 has-background-dim"></span>
+  <span aria-hidden="true" class="wp-block-cover__background has-accent-to-primary-gradient-background has-background-dim-60 has-background-dim"></span>
   ${bgUrl ? `<img class="wp-block-cover__image-background" alt="" src="${bgUrl}" style="object-fit:cover"/>` : ''}
   <div class="wp-block-cover__inner-container">
 

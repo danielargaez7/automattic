@@ -18,7 +18,28 @@ export function generateThemeJson(spec: ThemeSpec): Record<string, unknown> {
           name: c.name,
           color: c.hex,
         })),
-        gradients: [],
+        gradients: [
+          {
+            slug: 'primary-to-accent',
+            name: 'Primary to Accent',
+            gradient: 'linear-gradient(135deg, var(--wp--preset--color--primary) 0%, var(--wp--preset--color--accent) 100%)',
+          },
+          {
+            slug: 'accent-to-primary',
+            name: 'Accent to Primary',
+            gradient: 'linear-gradient(135deg, var(--wp--preset--color--accent) 0%, var(--wp--preset--color--primary) 100%)',
+          },
+          {
+            slug: 'base-to-surface',
+            name: 'Base to Surface',
+            gradient: 'linear-gradient(180deg, var(--wp--preset--color--base) 0%, var(--wp--preset--color--surface) 100%)',
+          },
+          {
+            slug: 'primary-diagonal',
+            name: 'Primary Diagonal',
+            gradient: 'linear-gradient(135deg, var(--wp--preset--color--primary) 0%, var(--wp--preset--color--neutral) 100%)',
+          },
+        ],
         defaultPalette: false,
         defaultGradients: false,
       },
