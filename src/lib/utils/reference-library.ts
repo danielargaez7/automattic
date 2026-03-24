@@ -144,13 +144,13 @@ function detectCategory(description: string, siteType?: string): string | null {
 /**
  * Find the best matching reference image from the library.
  * Priority: keyword match on description → vibe fallback → any available image.
- * Returns base64 + mimeType, or null if library is empty.
+ * Returns base64 + mimeType + filePath, or null if library is empty.
  */
 export async function findReferenceImage(
   vibe?: string,
   siteType?: string,
   description?: string,
-): Promise<{ data: string; mimeType: string; category: string } | null> {
+): Promise<{ data: string; mimeType: string; category: string; filePath: string } | null> {
   const libraryDir = path.join(process.cwd(), 'public', 'library');
 
   // 1. Try keyword match on description
@@ -183,10 +183,11 @@ export async function findReferenceImage(
   return null;
 }
 
+
 function pickImageFromCategory(
   libraryDir: string,
   category: string,
-): { data: string; mimeType: string } | null {
+): { data: string; mimeType: string; filePath: string } | null {
   const catDir = path.join(libraryDir, category);
   if (!fs.existsSync(catDir)) return null;
 
@@ -202,5 +203,5 @@ function pickImageFromCategory(
   const mimeType =
     ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg';
 
-  return { data: buffer.toString('base64'), mimeType };
+  return { data: buffer.toString('base64'), mimeType, filePath };
 }

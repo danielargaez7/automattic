@@ -1,5 +1,7 @@
 import archiver from 'archiver';
 import { PassThrough } from 'stream';
+import fs from 'fs';
+import path from 'path';
 import type { ThemeSpec } from '../schemas/theme-spec';
 import { generateThemeJson } from '../codegen/theme-json';
 import { generateStyleCss } from '../codegen/style-css';
@@ -17,12 +19,17 @@ export interface PackageResult {
   files: string[];
 }
 
+export interface PackageOptions {
+  heroImage?: { filePath: string; mimeType: string };
+}
+
 /**
  * Package a validated ThemeSpec into a ZIP archive.
  */
-export async function packageTheme(spec: ThemeSpec): Promise<PackageResult> {
+export async function packageTheme(spec: ThemeSpec, options?: PackageOptions): Promise<PackageResult> {
   const slug = spec.metadata.slug;
   const files: Map<string, string> = new Map();
+  const binaryFiles: Map<string, Buffer> = new Map();
 
   // Generate all file contents
   files.set('style.css', generateStyleCss(spec));
@@ -39,8 +46,21 @@ export async function packageTheme(spec: ThemeSpec): Promise<PackageResult> {
   files.set('parts/header.html', generateHeader(spec));
   files.set('parts/footer.html', generateFooter(spec));
 
+  // Bundle hero background image if available
+  let heroThemeRelPath: string | undefined;
+  if (options?.heroImage) {
+    try {
+      const ext = path.extname(options.heroImage.filePath).toLowerCase() || '.jpg';
+      heroThemeRelPath = `assets/images/hero-bg${ext}`;
+      binaryFiles.set(heroThemeRelPath, fs.readFileSync(options.heroImage.filePath));
+    } catch {
+      // If image can't be read, proceed without it
+      heroThemeRelPath = undefined;
+    }
+  }
+
   // Patterns
-  const patterns = generateAllPatterns(spec);
+  const patterns = generateAllPatterns(spec, heroThemeRelPath);
   for (const p of patterns) {
     files.set(`patterns/${p.filename}`, p.content);
   }
@@ -55,7 +75,7 @@ export async function packageTheme(spec: ThemeSpec): Promise<PackageResult> {
   const integrity = validateIntegrity(files, spec);
 
   // Build the ZIP
-  const buffer = await createZipBuffer(slug, files);
+  const buffer = await createZipBuffer(slug, files, binaryFiles);
 
   return {
     buffer,
@@ -64,7 +84,11 @@ export async function packageTheme(spec: ThemeSpec): Promise<PackageResult> {
   };
 }
 
-async function createZipBuffer(rootDir: string, files: Map<string, string>): Promise<Buffer> {
+async function createZipBuffer(
+  rootDir: string,
+  files: Map<string, string>,
+  binaryFiles: Map<string, Buffer> = new Map(),
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const archive = archiver('zip', { zlib: { level: 9 } });
     const chunks: Buffer[] = [];
@@ -76,8 +100,12 @@ async function createZipBuffer(rootDir: string, files: Map<string, string>): Pro
 
     archive.pipe(passthrough);
 
-    for (const [path, content] of files) {
-      archive.append(content, { name: `${rootDir}/${path}` });
+    for (const [filePath, content] of files) {
+      archive.append(content, { name: `${rootDir}/${filePath}` });
+    }
+
+    for (const [filePath, buffer] of binaryFiles) {
+      archive.append(buffer, { name: `${rootDir}/${filePath}` });
     }
 
     archive.finalize();

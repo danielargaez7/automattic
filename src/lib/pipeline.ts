@@ -33,10 +33,14 @@ export async function runPipeline(input: UserInput): Promise<PipelineResult> {
 
   // Auto-inject reference library image if user provided no inspiration images
   let enrichedInput = input;
+  let heroImagePath: string | undefined;
+  let heroImageMimeType: string | undefined;
   if (!input.inspirationImages || input.inspirationImages.length === 0) {
     const ref = await findReferenceImage(input.vibe, input.siteType, input.description);
     if (ref) {
       enrichedInput = { ...input, inspirationImages: [ref] };
+      heroImagePath = ref.filePath;
+      heroImageMimeType = ref.mimeType;
     }
   }
 
@@ -52,7 +56,10 @@ export async function runPipeline(input: UserInput): Promise<PipelineResult> {
   }
 
   // Step 2: Package into ZIP (includes codegen + integrity check)
-  const packageResult = await packageTheme(generation.spec);
+  const heroImage = heroImagePath && heroImageMimeType
+    ? { filePath: heroImagePath, mimeType: heroImageMimeType }
+    : undefined;
+  const packageResult = await packageTheme(generation.spec, { heroImage });
 
   if (!packageResult.integrity.valid) {
     const issues = packageResult.integrity.errors

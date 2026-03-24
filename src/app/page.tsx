@@ -150,6 +150,15 @@ export default function Home() {
   const [wpSites, setWpSites] = useState<Array<{ ID: number; name: string; URL: string }>>([]);
   const [showWpSitePicker, setShowWpSitePicker] = useState(false);
 
+  // Auto-load Playground when a theme is ready on step 5
+  useEffect(() => {
+    if (step === 5 && metadata && zipData) {
+      const t = setTimeout(() => loadThemeInPlayground(), 1500);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metadata]);
+
   // Handle WordPress.com OAuth return
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -685,29 +694,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Recent themes */}
-              {history.length > 0 && (
-                <div className="w-full max-w-lg mx-auto px-4 mt-4 space-y-2 animate-fade-in">
-                  <p className="text-xs text-white/40 font-medium uppercase tracking-wider text-center">Recent</p>
-                  <div className="space-y-2">
-                    {history.slice(0, 3).map((item) => (
-                      <button key={item.id} onClick={() => loadFromHistory(item)}
-                        className="w-full flex items-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl px-3 py-2 text-left transition-all cursor-pointer backdrop-blur">
-                        <div className="flex gap-1 shrink-0">
-                          {item.colors.slice(0, 4).map((c) => (
-                            <div key={c.slug} className="w-4 h-4 rounded" style={{ backgroundColor: c.hex }} />
-                          ))}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white text-xs font-medium truncate">{item.name}</p>
-                          <p className="text-white/40 text-xs truncate">{item.description}</p>
-                        </div>
-                        <span className={`text-xs font-bold shrink-0 ${item.grade === 'A' ? 'text-emerald-400' : 'text-amber-400'}`}>{item.grade}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
             </div>
           )}
@@ -957,10 +943,7 @@ export default function Home() {
           {/* ═══ STEP 5: Result ═══ */}
           {step === 5 && (variations.length > 0 || metadata) && (
             <div className="animate-fade-in space-y-6">
-              <div className="text-center space-y-4">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/30 border border-white/40">
-                  <Check className="w-10 h-10 text-white" />
-                </div>
+              <div className="text-center space-y-2">
                 <h2 className="text-3xl font-bold text-white text-glow">
                   {variations.length > 0 && selectedVariation === null
                     ? 'Pick your favorite'
@@ -1004,119 +987,113 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Accessibility Score */}
-              {accessibility && (
-                <div className="bg-white/90 backdrop-blur rounded-2xl p-6 space-y-4 shadow-lg text-gray-900">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-[#F3A8B1]" /> Accessibility Score
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-3xl font-bold ${accessibility.grade === 'A' ? 'text-emerald-500' : accessibility.grade === 'B' ? 'text-emerald-400' : accessibility.grade === 'C' ? 'text-amber-500' : 'text-red-500'}`}>{accessibility.grade}</span>
-                      <span className="text-sm text-gray-400">{accessibility.overall}/100</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {accessibility.checks.map((check) => (
-                      <div key={check.name} className="flex items-start gap-2 text-sm">
-                        <div className="mt-0.5 shrink-0">
-                          {check.status === 'pass' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> :
-                           check.status === 'warn' ? <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> :
-                           <X className="w-3.5 h-3.5 text-red-500" />}
+              {/* ── Result grid ── */}
+              {metadata && (
+                <div className="grid grid-cols-2 gap-4">
+
+                  {/* LEFT COLUMN */}
+                  <div className="space-y-4">
+
+                    {/* Accessibility Score — compact */}
+                    {accessibility && (
+                      <div className="bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/20">
+                        <p className="text-xs text-white/50 mb-3 flex items-center gap-1.5">
+                          <Shield className="w-3.5 h-3.5 text-[#F3A8B1]" /> Accessibility Score
+                        </p>
+                        <div className="flex items-end gap-2">
+                          <span className={`text-5xl font-bold leading-none ${accessibility.grade === 'A' ? 'text-emerald-400' : accessibility.grade === 'B' ? 'text-emerald-300' : accessibility.grade === 'C' ? 'text-amber-400' : 'text-red-400'}`}>
+                            {accessibility.grade}
+                          </span>
+                          <span className="text-white/50 text-lg pb-0.5">{accessibility.overall}/100</span>
                         </div>
-                        <div>
-                          <span className="text-gray-700">{check.name}</span>
-                          <p className="text-xs text-gray-400">{check.details}</p>
+                        <div className="mt-3 space-y-1.5">
+                          {accessibility.checks.map((check) => (
+                            <div key={check.name} className="flex items-center gap-1.5 text-xs text-white/50">
+                              {check.status === 'pass'
+                                ? <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                : check.status === 'warn'
+                                ? <AlertCircle className="w-3 h-3 text-amber-400 shrink-0" />
+                                : <X className="w-3 h-3 text-red-400 shrink-0" />}
+                              <span>{check.name}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    )}
 
-              {/* Theme Summary */}
-              {metadata && (
-              <div className="bg-white/90 backdrop-blur rounded-2xl p-6 space-y-4 shadow-lg text-gray-900">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-400 text-xs uppercase tracking-wider">Name</span>
-                    <p className="text-gray-900 font-medium mt-0.5">{metadata.name}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-xs uppercase tracking-wider">Slug</span>
-                    <p className="text-gray-900 font-mono mt-0.5">{metadata.slug}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-gray-400 text-xs uppercase tracking-wider">Description</span>
-                    <p className="text-gray-700 mt-0.5">{metadata.description}</p>
-                  </div>
-                </div>
-                <div className="border-t border-gray-200 pt-4">
-                  <span className="text-xs text-gray-400 block mb-2">{metadata.files.length} files generated</span>
-                  <div className="flex flex-wrap gap-1">
-                    {metadata.files.map((f) => (
-                      <span key={f} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md font-mono">{f}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="border-t border-gray-200 pt-4 flex gap-4 text-xs text-gray-400">
-                  <span>Model: {metadata.model}</span>
-                  <span>Tokens: {metadata.tokensUsed.toLocaleString()}</span>
-                  {metadata.repairAttempts > 0 && <span>Repairs: {metadata.repairAttempts}</span>}
-                </div>
-              </div>
-              )}
+                    {/* Theme metadata */}
+                    <div className="bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/20 space-y-3">
+                      <div>
+                        <span className="text-xs text-white/40 uppercase tracking-wider">Name</span>
+                        <p className="text-white font-medium mt-0.5">{metadata.name}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-white/40 uppercase tracking-wider">Slug</span>
+                        <p className="text-white/60 font-mono text-sm mt-0.5">{metadata.slug}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-white/40 uppercase tracking-wider">Description</span>
+                        <p className="text-white/60 text-sm mt-0.5">{metadata.description}</p>
+                      </div>
+                      <div className="pt-1 border-t border-white/10 flex gap-3 text-xs text-white/30">
+                        <span>{metadata.model}</span>
+                        <span>{metadata.tokensUsed.toLocaleString()} tokens</span>
+                        {metadata.repairAttempts > 0 && <span>Repairs: {metadata.repairAttempts}</span>}
+                      </div>
+                    </div>
 
-              {/* WordPress Playground Preview Toggle */}
-              {metadata && (
-                <>
-                  <button onClick={async () => {
-                    setShowPreview((v) => !v);
-                    if (!showPreview) setTimeout(() => loadThemeInPlayground(), 1500);
-                  }}
-                    className="w-full py-3 px-4 rounded-xl border border-white/30 bg-white/15 backdrop-blur text-white hover:bg-white/25 transition-all flex items-center justify-center gap-2 cursor-pointer text-sm font-medium">
-                    <Eye className="w-4 h-4" /> {showPreview ? 'Hide' : 'Preview in WordPress Playground'}
-                  </button>
+                  </div>
 
-                  {showPreview && (
-                    <div className="rounded-2xl overflow-hidden border border-white/30 bg-white shadow-lg" style={{ height: '520px' }}>
+                  {/* RIGHT COLUMN */}
+                  <div className="space-y-3">
+
+                    {/* Download */}
+                    <button onClick={handleDownload}
+                      className="w-full py-3.5 px-6 rounded-2xl font-bold bg-white text-[#e8818b] hover:bg-white/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ether-shadow">
+                      <Download className="w-5 h-5" /> Download ZIP
+                    </button>
+
+                    {/* Publish */}
+                    {wpPublished ? (
+                      <a href={wpPublished.siteUrl} target="_blank" rel="noopener noreferrer"
+                        className="w-full py-3.5 px-6 rounded-2xl font-semibold text-sm bg-emerald-500/80 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
+                        <Check className="w-4 h-4" /> Published! View on WordPress.com
+                      </a>
+                    ) : (
+                      <button onClick={handlePublishToWordPress} disabled={wpPublishing}
+                        className="w-full py-3.5 px-6 rounded-2xl font-semibold text-sm border border-white/30 text-white/80 hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur disabled:opacity-50 disabled:cursor-not-allowed">
+                        {wpPublishing
+                          ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</>
+                          : <><Cloud className="w-4 h-4" /> Publish to WordPress</>}
+                      </button>
+                    )}
+
+                    {/* Playground preview — always visible */}
+                    <div className="rounded-2xl overflow-hidden border border-white/20 bg-white shadow-lg" style={{ height: '380px' }}>
+                      <div className="bg-white/5 px-3 py-2 flex items-center gap-2 border-b border-white/10">
+                        <Eye className="w-3.5 h-3.5 text-white/40" />
+                        <span className="text-xs text-white/40">Preview WordPress Playground</span>
+                      </div>
                       <iframe
                         ref={playgroundRef}
                         src="https://playground.wordpress.net/remote.html"
-                        className="w-full h-full"
+                        className="w-full"
+                        style={{ height: 'calc(100% - 33px)' }}
                         title="WordPress Playground Preview"
                       />
                     </div>
-                  )}
-                </>
+
+                  </div>
+                </div>
               )}
 
-              {/* Actions */}
+              {/* Start over */}
               {metadata && (
-                <div className="space-y-3">
-                  <div className="flex gap-3">
-                    <button onClick={handleDownload}
-                      className="flex-1 py-3.5 px-6 rounded-full font-bold bg-white text-[#e8818b] hover:bg-white/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ether-shadow">
-                      <Download className="w-5 h-5" /> Download ZIP
-                    </button>
-                    <button onClick={handleReset}
-                      className="py-3.5 px-5 rounded-full font-medium border border-white/30 text-white hover:bg-white/15 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
-                      <RotateCcw className="w-4 h-4" /> New
-                    </button>
-                  </div>
-                  {wpPublished ? (
-                    <a href={wpPublished.siteUrl} target="_blank" rel="noopener noreferrer"
-                      className="w-full py-3 px-6 rounded-full font-semibold text-sm bg-emerald-500/80 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur">
-                      <Check className="w-4 h-4" /> Published! View on WordPress.com
-                    </a>
-                  ) : (
-                    <button onClick={handlePublishToWordPress} disabled={wpPublishing}
-                      className="w-full py-3 px-6 rounded-full font-semibold text-sm border border-white/30 text-white/80 hover:bg-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer backdrop-blur disabled:opacity-50 disabled:cursor-not-allowed">
-                      {wpPublishing
-                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</>
-                        : <><Cloud className="w-4 h-4" /> Publish to WordPress.com</>}
-                    </button>
-                  )}
+                <div className="text-center">
+                  <button onClick={handleReset}
+                    className="text-white/30 hover:text-white/60 text-sm transition-all inline-flex items-center gap-1.5 cursor-pointer">
+                    <RotateCcw className="w-3.5 h-3.5" /> Start over
+                  </button>
                 </div>
               )}
             </div>

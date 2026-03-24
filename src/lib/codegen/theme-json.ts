@@ -135,7 +135,13 @@ export function generateThemeJson(spec: ThemeSpec): Record<string, unknown> {
           },
         },
       },
-      blocks: {},
+      blocks: {
+        'core/search': {
+          border: {
+            radius: spec.designTokens.borderRadius?.medium || '8px',
+          },
+        },
+      },
     },
 
     templateParts: [

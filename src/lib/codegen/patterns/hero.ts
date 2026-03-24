@@ -1,8 +1,12 @@
 import type { ThemeSpec } from '../../schemas/theme-spec';
 import { patternHeader } from './utils';
 
-export function generateHeroCentered(spec: ThemeSpec): string {
+export function generateHeroCentered(spec: ThemeSpec, heroThemeRelPath?: string): string {
   const slug = spec.metadata.slug;
+  const bgUrl = heroThemeRelPath
+    ? `<?php echo esc_url( get_template_directory_uri() . '/${heroThemeRelPath}' ); ?>`
+    : '';
+  const dimRatio = heroThemeRelPath ? 50 : 100;
   return `${patternHeader({
     title: 'Hero Centered',
     slug: `${slug}/hero-centered`,
@@ -11,9 +15,10 @@ export function generateHeroCentered(spec: ThemeSpec): string {
     blockTypes: 'core/cover',
   })}
 
-<!-- wp:cover {"overlayColor":"base","isUserOverlayColor":true,"minHeight":600,"align":"full","layout":{"type":"constrained"}} -->
+<!-- wp:cover {"url":"${bgUrl}","dimRatio":${dimRatio},"overlayColor":"base","isUserOverlayColor":true,"minHeight":600,"align":"full","layout":{"type":"constrained"}} -->
 <div class="wp-block-cover alignfull" style="min-height:600px">
-  <span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-100 has-background-dim"></span>
+  <span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-${dimRatio} has-background-dim"></span>
+  ${bgUrl ? `<img class="wp-block-cover__image-background" alt="" src="${bgUrl}" style="object-fit:cover"/>` : ''}
   <div class="wp-block-cover__inner-container">
 
     <!-- wp:spacer {"height":"60px"} -->
@@ -45,8 +50,11 @@ export function generateHeroCentered(spec: ThemeSpec): string {
 <!-- /wp:cover -->`;
 }
 
-export function generateHeroSplit(spec: ThemeSpec): string {
+export function generateHeroSplit(spec: ThemeSpec, heroThemeRelPath?: string): string {
   const slug = spec.metadata.slug;
+  const imgSrc = heroThemeRelPath
+    ? `<?php echo esc_url( get_template_directory_uri() . '/${heroThemeRelPath}' ); ?>`
+    : '';
   return `${patternHeader({
     title: 'Hero Split',
     slug: `${slug}/hero-split`,
@@ -87,7 +95,7 @@ export function generateHeroSplit(spec: ThemeSpec): string {
   <!-- wp:column {"width":"50%"} -->
   <div class="wp-block-column" style="flex-basis:50%">
     <!-- wp:image {"align":"wide","sizeSlug":"full"} -->
-    <figure class="wp-block-image alignwide size-full"><img src="" alt=""/></figure>
+    <figure class="wp-block-image alignwide size-full"><img src="${imgSrc}" alt=""/></figure>
     <!-- /wp:image -->
   </div>
   <!-- /wp:column -->
@@ -99,8 +107,11 @@ export function generateHeroSplit(spec: ThemeSpec): string {
 <!-- /wp:group -->`;
 }
 
-export function generateHeroFullwidth(spec: ThemeSpec): string {
+export function generateHeroFullwidth(spec: ThemeSpec, heroThemeRelPath?: string): string {
   const slug = spec.metadata.slug;
+  const bgUrl = heroThemeRelPath
+    ? `<?php echo esc_url( get_template_directory_uri() . '/${heroThemeRelPath}' ); ?>`
+    : '';
   return `${patternHeader({
     title: 'Hero Full Width Image',
     slug: `${slug}/hero-fullwidth-image`,
@@ -109,9 +120,10 @@ export function generateHeroFullwidth(spec: ThemeSpec): string {
     blockTypes: 'core/cover',
   })}
 
-<!-- wp:cover {"url":"","dimRatio":60,"overlayColor":"base","isUserOverlayColor":true,"minHeight":80,"minHeightUnit":"vh","align":"full","layout":{"type":"constrained"}} -->
+<!-- wp:cover {"url":"${bgUrl}","dimRatio":60,"overlayColor":"base","isUserOverlayColor":true,"minHeight":80,"minHeightUnit":"vh","align":"full","layout":{"type":"constrained"}} -->
 <div class="wp-block-cover alignfull" style="min-height:80vh">
   <span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-60 has-background-dim"></span>
+  ${bgUrl ? `<img class="wp-block-cover__image-background" alt="" src="${bgUrl}" style="object-fit:cover"/>` : ''}
   <div class="wp-block-cover__inner-container">
 
     <!-- wp:heading {"textAlign":"center","level":1,"fontSize":"xx-large","textColor":"contrast"} -->
