@@ -12,6 +12,7 @@ import { generateFooter } from '../codegen/parts/footer';
 import { generateAllPatterns } from '../codegen/patterns/index';
 import { generateStyleVariations } from '../codegen/style-variations';
 import { validateIntegrity, type IntegrityResult } from './integrity';
+import { selectShell } from '../shells/index';
 
 export interface PackageResult {
   buffer: Buffer;
@@ -21,6 +22,9 @@ export interface PackageResult {
 
 export interface PackageOptions {
   themeImages?: Array<{ filePath: string; mimeType: string }>;
+  /** Passed from UserInput to enable shell selection */
+  siteType?: string;
+  vibe?: string;
 }
 
 /**
@@ -58,10 +62,39 @@ export async function packageTheme(spec: ThemeSpec, options?: PackageOptions): P
     } catch { /* skip unreadable files */ }
   }
 
-  // Patterns
-  const patterns = generateAllPatterns(spec, imageUris);
-  for (const p of patterns) {
-    files.set(`patterns/${p.filename}`, p.content);
+  // Patterns — use a pre-built shell if one matches siteType + vibe,
+  // otherwise fall back to codegen generators.
+  const shell = selectShell(options?.siteType, options?.vibe);
+
+  if (shell) {
+    // Shell provides a home.php pattern; codegen provides all other patterns
+    const shellPatterns = shell.buildPatterns(slug, imageUris);
+    const shellFilenames = new Set(shellPatterns.map((p) => p.filename));
+
+    // Add shell patterns first
+    for (const p of shellPatterns) {
+      files.set(`patterns/${p.filename}`, p.content);
+    }
+    // Add codegen patterns that the shell doesn't override
+    const codegenPatterns = generateAllPatterns(spec, imageUris);
+    for (const p of codegenPatterns) {
+      if (!shellFilenames.has(p.filename)) {
+        files.set(`patterns/${p.filename}`, p.content);
+      }
+    }
+
+    // Override the home template to point at shell's home pattern
+    const homeTemplate = `<!-- wp:template-part {"slug":"header","area":"header","tagName":"header"} /-->
+
+<!-- wp:pattern {"slug":"${slug}/home"} /-->
+
+<!-- wp:template-part {"slug":"footer","area":"footer","tagName":"footer"} /-->`;
+    files.set('templates/home.html', homeTemplate);
+  } else {
+    const patterns = generateAllPatterns(spec, imageUris);
+    for (const p of patterns) {
+      files.set(`patterns/${p.filename}`, p.content);
+    }
   }
 
   // Style variations

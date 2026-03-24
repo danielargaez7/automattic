@@ -54,7 +54,11 @@ export async function runPipeline(input: UserInput): Promise<PipelineResult> {
   }
 
   // Step 2: Package into ZIP (includes codegen + integrity check)
-  const packageResult = await packageTheme(generation.spec, { themeImages });
+  const packageResult = await packageTheme(generation.spec, {
+    themeImages,
+    siteType: input.siteType,
+    vibe: input.vibe,
+  });
 
   if (!packageResult.integrity.valid) {
     const issues = packageResult.integrity.errors
