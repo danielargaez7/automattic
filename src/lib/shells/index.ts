@@ -3,6 +3,10 @@ import { blogEditorialShell } from './shells/blog-editorial';
 import { blogMinimalShell } from './shells/blog-minimal';
 import { portfolioCvShell } from './shells/portfolio-cv';
 import { businessBentoShell } from './shells/business-bento';
+import { creativeGalleryShell } from './shells/creative-gallery';
+import { photoGridShell } from './shells/photo-grid';
+import { communityOrgShell } from './shells/community-org';
+import { foodRestaurantShell } from './shells/food-restaurant';
 
 export type { ShellDefinition } from './types';
 
@@ -11,10 +15,21 @@ export type { ShellDefinition } from './types';
  * Shell selection scans this list and returns the first match.
  */
 const SHELLS: ShellDefinition[] = [
-  blogEditorialShell,   // blog + bold/dark/corporate
-  blogMinimalShell,     // blog + minimal/warm/organic
-  portfolioCvShell,     // portfolio + minimal/elegant
-  businessBentoShell,   // business/agency + corporate/bold
+  // Blog
+  blogEditorialShell,     // blog + bold/dark/corporate  → spiel news grid
+  blogMinimalShell,       // blog/personal + minimal/warm → substrata post loop
+
+  // Portfolio
+  portfolioCvShell,       // portfolio + minimal/elegant  → readymade CV/resume
+  photoGridShell,         // portfolio + minimalist/dark  → grammer photo grid
+  creativeGalleryShell,   // portfolio + bold/dark/playful → vueo masonry
+
+  // Business / Org
+  businessBentoShell,     // business + corporate/bold    → kentwood bento
+  communityOrgShell,      // business + warm/organic      → koinonia nonprofit
+
+  // Food / Lifestyle
+  foodRestaurantShell,    // business/ecommerce + warm    → TT25 food layout
 ];
 
 /**
