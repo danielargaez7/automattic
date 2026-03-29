@@ -4,8 +4,10 @@ import type { UserInput } from '../schemas/user-input';
 import { getSystemPrompt } from './prompts/system-prompt';
 import { getPromptTemplate, getCurrentVersion } from './prompts/registry';
 import { buildDesignTokensPrompt } from './prompts/design-tokens-prompt';
+import { buildShellTokensPrompt } from './prompts/shell-tokens-prompt';
 import { buildRepairPrompt } from './repair';
 import { validateThemeSpec } from '../validators/pipeline';
+import { validateShellTokens, buildShellThemeSpec } from './shell-spec-builder';
 import { extractDominantColors } from '../utils/extract-colors';
 
 const MAX_REPAIR_ATTEMPTS = 3;
@@ -133,6 +135,39 @@ export class GeminiProvider implements ThemeGenerationProvider {
       tokensUsed: totalTokens,
       repairAttempts,
     };
+  }
+
+  /**
+   * Fast path for shell-backed generation.
+   * Single small API call — only returns design tokens, not full block patterns.
+   * Falls back to null if the response is invalid (caller should use full path).
+   */
+  async generateShellTokens(
+    input: UserInput,
+    imageParts: Part[],
+    extractedColors: string[],
+  ): Promise<{ spec: ReturnType<typeof buildShellThemeSpec>; tokensUsed: number } | null> {
+    const prompt = buildShellTokensPrompt(input, extractedColors);
+    const parts: Part[] = [];
+
+    if (imageParts.length > 0) {
+      parts.push({ text: 'Inspiration images:\n' });
+      parts.push(...imageParts);
+      parts.push({ text: '\n' });
+    }
+    parts.push({ text: prompt });
+
+    try {
+      const response = await this.callApi('You are a visual designer. Output only JSON.', parts, 2048);
+      const raw = JSON.parse(
+        response.content.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, ''),
+      );
+      const tokens = validateShellTokens(raw);
+      if (!tokens) return null;
+      return { spec: buildShellThemeSpec(tokens), tokensUsed: response.tokensUsed };
+    } catch {
+      return null; // any failure → caller falls back to full path
+    }
   }
 
   private async callApi(

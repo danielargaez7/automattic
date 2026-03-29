@@ -19,10 +19,10 @@ const SHELLS: ShellDefinition[] = [
   blogEditorialShell,     // blog + bold/dark/corporate  → spiel news grid
   blogMinimalShell,       // blog/personal + minimal/warm → substrata post loop
 
-  // Portfolio
-  portfolioCvShell,       // portfolio + minimal/elegant  → readymade CV/resume
-  photoGridShell,         // portfolio + minimalist/dark  → grammer photo grid
-  creativeGalleryShell,   // portfolio + bold/dark/playful → vueo masonry
+  // Portfolio (gallery shells first — default fallback is visual, not CV)
+  creativeGalleryShell,   // portfolio + bold/dark/playful/organic/warm → vueo masonry
+  photoGridShell,         // portfolio + minimalist/dark/elegant → grammer photo grid
+  portfolioCvShell,       // portfolio + elegant/corporate → readymade CV/resume
 
   // Business / Org
   businessBentoShell,     // business + corporate/bold    → kentwood bento

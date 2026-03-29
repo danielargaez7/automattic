@@ -105,7 +105,7 @@ const HOME_HTML = `
 export const blogMinimalShell: ShellDefinition = {
   id: 'blog-minimal',
   siteTypes: ['blog', 'personal'],
-  vibes: ['minimalist', 'elegant', 'warm', 'organic'],
+  vibes: ['minimalist', 'elegant', 'warm', 'organic', 'playful'],
 
   buildPatterns(slug, imageUris) {
     const norm = (html: string) =>

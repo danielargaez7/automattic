@@ -9,8 +9,8 @@ const TOKEN_MAP: Record<string, string> = {
 };
 
 // ── Adapted from vueo/mural parts/home-work-default.html ─────────────────
-// Staggered 3-column masonry query grid — each column queries with offset
-// so posts fill the columns in a visual masonry style
+// Static hero image + staggered 3-column masonry query grid
+// Static section shows immediately; masonry populates once posts are added
 const HOME_HTML = `
 <!-- wp:group {"align":"full","style":{"spacing":{"padding":{"right":"var:preset|spacing|50","left":"var:preset|spacing|50","top":"var:preset|spacing|70","bottom":"var:preset|spacing|70"},"margin":{"top":"0","bottom":"0"}}},"layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignfull" style="margin-top:0;margin-bottom:0;padding-top:var(--wp--preset--spacing--70);padding-right:var(--wp--preset--spacing--50);padding-bottom:var(--wp--preset--spacing--70);padding-left:var(--wp--preset--spacing--50)">
@@ -23,6 +23,25 @@ const HOME_HTML = `
 		<!-- /wp:paragraph -->
 	</div>
 	<!-- /wp:group -->
+
+	<!-- wp:columns {"align":"wide","style":{"spacing":{"blockGap":{"top":"0.5rem","left":"0.5rem"},"margin":{"bottom":"var:preset|spacing|60"}}}} -->
+	<div class="wp-block-columns alignwide" style="margin-bottom:var(--wp--preset--spacing--60)">
+		<!-- wp:column {"width":"55%"} -->
+		<div class="wp-block-column" style="flex-basis:55%">
+			<!-- wp:image {"aspectRatio":"4/3","scale":"cover","sizeSlug":"full"} -->
+			<figure class="wp-block-image size-full"><img src="<?php echo esc_url( get_template_directory_uri() ); ?>/assets/images/placeholder-1.jpg" alt="" style="aspect-ratio:4/3;object-fit:cover"/></figure>
+			<!-- /wp:image -->
+		</div>
+		<!-- /wp:column -->
+		<!-- wp:column {"width":"45%"} -->
+		<div class="wp-block-column" style="flex-basis:45%">
+			<!-- wp:image {"aspectRatio":"3/4","scale":"cover","sizeSlug":"full"} -->
+			<figure class="wp-block-image size-full"><img src="<?php echo esc_url( get_template_directory_uri() ); ?>/assets/images/placeholder-2.jpg" alt="" style="aspect-ratio:3/4;object-fit:cover"/></figure>
+			<!-- /wp:image -->
+		</div>
+		<!-- /wp:column -->
+	</div>
+	<!-- /wp:columns -->
 
 	<!-- wp:columns {"align":"wide","style":{"spacing":{"blockGap":{"top":"1rem","left":"1rem"},"margin":{"top":"0","bottom":"0"}}}} -->
 	<div class="wp-block-columns alignwide" style="margin-top:0;margin-bottom:0">
@@ -112,7 +131,7 @@ const HOME_HTML = `
 export const creativeGalleryShell: ShellDefinition = {
   id: 'creative-gallery',
   siteTypes: ['portfolio'],
-  vibes: ['bold', 'dark', 'playful', 'organic'],
+  vibes: ['bold', 'dark', 'playful', 'organic', 'warm'],
 
   buildPatterns(slug, imageUris) {
     const norm = (html: string) =>

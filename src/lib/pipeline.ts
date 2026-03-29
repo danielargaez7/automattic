@@ -5,6 +5,9 @@ import { GeminiProvider } from './ai/gemini';
 import { packageTheme, type PackageResult } from './packager/zip';
 import { scoreAccessibility, type AccessibilityScore } from './validators/accessibility';
 import { findReferenceImages } from './utils/reference-library';
+import { selectShell } from './shells/index';
+import { extractDominantColors } from './utils/extract-colors';
+import { getCurrentVersion } from './ai/prompts/registry';
 
 export interface PipelineResult {
   packageResult: PackageResult;
@@ -42,15 +45,57 @@ export async function runPipeline(input: UserInput): Promise<PipelineResult> {
     }
   }
 
-  // Step 1: Generate Theme Spec via LLM (includes validation + repair loop)
-  // Fall back to Anthropic if primary provider fails
+  // Step 1: Generate Theme Spec via LLM
+  // Shell fast path: if a shell matches siteType+vibe, skip block-pattern generation
+  // and only ask AI for design tokens — single small call instead of full spec.
   let generation: GenerationResult;
-  try {
-    generation = await provider.generateThemeSpec(enrichedInput);
-  } catch (primaryError) {
-    console.warn('Primary AI provider failed, falling back to Anthropic:', primaryError);
-    const fallback = new AnthropicProvider();
-    generation = await fallback.generateThemeSpec(enrichedInput);
+  const shellMatched = !!selectShell(input.siteType, input.vibe);
+
+  if (shellMatched && provider instanceof GeminiProvider) {
+    // Pre-extract colors from images for the fast path
+    const fastImageParts: import('@google/generative-ai').Part[] = [];
+    const fastColors: string[] = [];
+
+    if (enrichedInput.inspirationImages && enrichedInput.inspirationImages.length > 0) {
+      for (const img of enrichedInput.inspirationImages) {
+        try {
+          const colors = await extractDominantColors(img.data, img.mimeType, 6);
+          fastColors.push(...colors);
+        } catch { /* ignore */ }
+        fastImageParts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+      }
+    }
+
+    const fastResult = await provider.generateShellTokens(enrichedInput, fastImageParts, fastColors);
+
+    if (fastResult) {
+      generation = {
+        spec: fastResult.spec,
+        model: provider['model'] as string,
+        promptVersion: getCurrentVersion(),
+        tokensUsed: fastResult.tokensUsed,
+        repairAttempts: 0,
+      };
+    } else {
+      // Fast path failed — fall back to full generation
+      console.warn('Shell fast path failed, falling back to full spec generation');
+      try {
+        generation = await provider.generateThemeSpec(enrichedInput);
+      } catch (primaryError) {
+        console.warn('Primary AI provider failed, falling back to Anthropic:', primaryError);
+        const fallback = new AnthropicProvider();
+        generation = await fallback.generateThemeSpec(enrichedInput);
+      }
+    }
+  } else {
+    // No shell match — full generation path (includes validation + repair loop)
+    try {
+      generation = await provider.generateThemeSpec(enrichedInput);
+    } catch (primaryError) {
+      console.warn('Primary AI provider failed, falling back to Anthropic:', primaryError);
+      const fallback = new AnthropicProvider();
+      generation = await fallback.generateThemeSpec(enrichedInput);
+    }
   }
 
   // Step 2: Package into ZIP (includes codegen + integrity check)

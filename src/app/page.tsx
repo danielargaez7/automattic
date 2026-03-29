@@ -659,10 +659,6 @@ export default function Home() {
                   <p className="mt-2 text-sm md:text-base text-white/80 font-medium tracking-wide text-glow-soft">
                     Powered by AI. Built for WordPress.
                   </p>
-                  <p className="mt-3 text-xs md:text-sm text-white font-semibold max-w-md text-glow-soft">
-                    Describe your dream website, and we&apos;ll hand you a complete, installable WordPress theme in 30 seconds.
-                  </p>
-
                   {/* Input bar — ON the cloud with pixie dust */}
                   <div className="w-full max-w-lg mt-6 px-4 relative pixie-dust">
                     <div className="sparkle-field">
